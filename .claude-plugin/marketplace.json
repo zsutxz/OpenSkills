@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "OpenSkills",
+  "description": "个人技能合集 — 开发者生产力工具包，包含代码库分析、规范提交、敏感信息守卫等功能",
+  "owner": {
+    "name": "zsutxz",
+    "url": "https://github.com/zsutxz"
+  },
+  "plugins": [
+    {
+      "name": "dev-toolkit",
+      "description": "开发者生产力工具包：代码库统计分析、规范提交信息生成、代码库架构分析、Git 提交规范知识、敏感信息检测守卫。完整的 Claude Code 插件示例，展示所有组件类型（Commands、Agents、Skills、Hooks）。",
+      "author": {
+        "name": "zsutxz",
+        "url": "https://github.com/zsutxz"
+      },
+      "category": "development",
+      "source": "./",
+      "homepage": "https://github.com/zsutxz/OpenSkills"
+    }
+  ]
+}
