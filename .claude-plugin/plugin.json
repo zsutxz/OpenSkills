@@ -1,0 +1,19 @@
+{
+  "name": "dev-toolkit",
+  "version": "1.0.0",
+  "description": "Developer productivity toolkit: codebase analysis, structured commits, and development guardrails. A complete example plugin demonstrating all Claude Code plugin component types.",
+  "author": {
+    "name": "OpenSkills Contributors",
+    "url": "https://github.com/zsutxz"
+  },
+  "homepage": "https://github.com/zsutxz/OpenSkills",
+  "repository": "https://github.com/zsutxz/OpenSkills",
+  "license": "MIT",
+  "keywords": [
+    "developer-tools",
+    "codebase-analysis",
+    "commit-helper",
+    "example-plugin",
+    "tutorial"
+  ]
+}
