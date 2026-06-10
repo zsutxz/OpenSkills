@@ -1,5 +1,5 @@
 {
-  "name": "dev-toolkit",
+  "name": "open-skills",
   "version": "1.0.0",
   "description": "Developer productivity toolkit: codebase analysis, structured commits, and development guardrails. A complete example plugin demonstrating all Claude Code plugin component types.",
   "author": {

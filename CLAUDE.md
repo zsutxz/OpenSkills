@@ -1,11 +1,11 @@
-# dev-toolkit 项目
+# OpenSkills 项目
 
-这是一个 Claude Code 示例插件项目，目的是展示插件的所有组件类型，同时提供实用的开发工具。
+这是一个 Claude Code 插件项目，用于分享个人技能。
 
 ## 项目结构
 
 - `.claude-plugin/plugin.json` — 插件清单（必需）
-- `commands/` — 斜杠命令（`/dev-toolkit:stats`、`/dev-toolkit:commit`）
+- `commands/` — 斜杠命令（`/open-skills:stats`、`/open-skills:commit`）
 - `agents/` — 子代理定义（`codebase-analyst`）
 - `skills/` — 自动激活的技能知识（`commit-style`）
 - `hooks/` — 事件处理器（`guard-secrets` 敏感信息守卫）

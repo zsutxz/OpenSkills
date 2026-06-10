@@ -8,7 +8,7 @@
   },
   "plugins": [
     {
-      "name": "dev-toolkit",
+      "name": "open-skills",
       "description": "开发者生产力工具包：代码库统计分析、规范提交信息生成、代码库架构分析、Git 提交规范知识、敏感信息检测守卫。完整的 Claude Code 插件示例，展示所有组件类型（Commands、Agents、Skills、Hooks）。",
       "author": {
         "name": "zsutxz",
