@@ -4,7 +4,7 @@ description: 统一管理 Claude Code 生态系统的所有组件更新，包括
 license: MIT
 allowed-tools: [Bash, Read, Write, WebSearch]
 metadata:
-  version: "4.1.0"
+  version: "4.1.1"
   category: system
   tags: update,cli,plugin,maintenance,changelog
 ---
@@ -47,13 +47,13 @@ claude update
 claude plugin marketplace update        # 不带参数则刷新所有市场
 ```
 
-**逐个更新插件**（从上一步 `plugin list` 输出中提取需更新的插件名）：
+**逐个更新插件**（用 `plugin list` 输出中的 `plugin@marketplace` 全名）：
 ```bash
-claude plugin update <plugin_name>             # 仅接受插件名
-claude plugin update <plugin_name> -s project  # 指定范围：user/project/local/managed
+claude plugin update <plugin>@<marketplace>             # 必须用全名
+claude plugin update <plugin>@<marketplace> -s project  # 指定范围：user/project/local/managed
 ```
 
-> ⚠️ `update` 只接受 `<plugin_name>`，**不接受** `@marketplace`。`plugin@marketplace` 语法仅用于 `install`，用在 `update` 上会报错。
+> ⚠️ `update` **必须用全名 `plugin@marketplace`**。虽然 `--help` 形式上显示 `<plugin>`，但裸名（如 `agent-sdk-dev`）会报 `Plugin not found`——同名插件可能存在于多个市场，需市场名消歧。`@marketplace` 语法对 `install` 和 `update` 都适用。
 
 - 跳过 `disabled` / `failed` 状态的插件，不自动处理
 - 单个插件失败不阻塞其余，记录失败项继续
@@ -166,3 +166,5 @@ CronCreate: {
 - 网络错误时提示用户检查代理/VPN，提供手动命令
 - 更新后提醒用户重启 Claude Code（CLI 与插件更新均需重启生效）
 - 所有时间戳一律用 `date` 命令生成；确定性逻辑（过期判断、日期比较）交给 bash，不依赖模型估算
+- Windows 上市场刷新偶发 `EBUSY: resource busy or locked`（市场目录重命名被占用），会级联导致同市场插件报 `Plugin not found`；重试通常自愈，残留 `.bak` 目录则需手动删除 `~/.claude/plugins/marketplaces/<name>` 后重试
+- 更新报告中的"已是最新"仅在市场源可达时可信——若 github 不通，版本判定基于本地缓存，可能过期
