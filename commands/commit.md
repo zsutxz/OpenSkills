@@ -4,7 +4,7 @@ allowed-tools: Bash(git:*), Read
 argument-hint: "[--simple]"
 ---
 
-# /dev-toolkit:commit — 生成规范提交信息
+# /open-skills:commit — 生成规范提交信息
 
 分析当前的 Git 暂存更改，生成符合 Conventional Commits 规范的提交信息。
 

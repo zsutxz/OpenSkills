@@ -4,7 +4,7 @@ allowed-tools: Bash, Read, Glob, Grep
 argument-hint: [path]
 ---
 
-# /dev-toolkit:stats — 代码库统计分析
+# /open-skills:stats — 代码库统计分析
 
 分析指定代码库（默认为当前目录）的统计信息。
 

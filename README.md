@@ -12,8 +12,10 @@
 | 📋 命令 | `/open-skills:commit` | 分析暂存更改，生成 Conventional Commits 格式的提交信息 |
 | 🤖 代理 | `codebase-analyst` | 代码库分析专家，识别架构模式和技术债务 |
 | 🧠 技能 | `commit-style` | Git 提交规范知识，讨论 commit 时自动激活 |
-| 🧠 技能 | `ai-news-aggregator` | 获取最新 AI 行业新闻，智能总结并展示最多 10 条资讯 |
+| 🧠 技能 | `claude-updater` | 统一管理 Claude Code 生态更新，检查 CLI、插件与新功能 |
 | 🧠 技能 | `translate-it-article` | 将英文 IT 技术文章翻译成通俗中文并保存到本地 |
+| 🧠 技能 | `everyday-news` | 每日新闻早报：财经、政治、世界杯、科技 AI 和技巧速报 |
+| 🧠 技能 | `world-cup-predictor` | 2026 世界杯预测、金靴奖、小组赛和赛后分析 |
 | 🛡️ 钩子 | `guard-secrets` | 写入文件前检测敏感信息（API 密钥、密码等） |
 
 ## 安装方式
@@ -103,7 +105,9 @@ git add .
 ### 技能
 
 - `commit-style`：讨论 Git 提交、commit message、提交规范时自动激活，提供 Conventional Commits 规范和中文提交指南。
-- `ai-news-aggregator`：想了解 AI 行业最新动态时自动激活，搜索并总结最多 10 条重要资讯。
+- `claude-updater`：需要更新 Claude Code CLI、插件或查看新功能时自动激活。
+- `everyday-news`：每日新闻早报，涵盖财经、政治、世界杯、科技 AI、GitHub 热门仓库和 Claude Code 技巧，需要时自动激活。
+- `world-cup-predictor`：世界杯预测、金靴奖、小组赛比分和赛后分析，需要时自动激活。
 - `translate-it-article`：需要翻译英文 IT 技术文章/博客/文档时自动激活，译成通俗中文并保存为本地 Markdown 文件。
 
 ### 钩子
