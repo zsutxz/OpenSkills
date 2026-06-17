@@ -30,7 +30,7 @@ deliver:   local (推送 + 存文件)
 
 4. **Translate & format** — Chinese translation, clean output, NO URLs shown anywhere
 
-5. **Save** — write final Chinese version to `${CLAUDE_PLUGIN_ROOT}/skills/everyday-news/reports/YYYY-MM-DD.md`
+5. **Save** — write final Chinese version to `doc/YYYY-MM-DD.md`
 
 ## Output Structure
 
@@ -59,7 +59,7 @@ fetch_news.py (Python subprocess)
      ↓ .json + .md
 Agent reads JSON → translates → deduplicates → web search tips → formats → saves
      ↓
-${CLAUDE_PLUGIN_ROOT}/skills/everyday-news/reports/YYYY-MM-DD.md
+doc/YYYY-MM-DD.md
 ```
 
 ## Key Techniques
@@ -82,5 +82,5 @@ not filling one source before starting the next. Ensures source diversity.
 ## Files
 
 - `scripts/fetch_news.py` — main engine (RSS + GitHub + round-robin + JSON/MD output)
-- `${CLAUDE_PLUGIN_ROOT}/skills/everyday-news/reports/YYYY-MM-DD.md` — daily Chinese report
-- `${CLAUDE_PLUGIN_ROOT}/skills/everyday-news/reports/YYYY-MM-DD.json` — structured raw data
+- `doc/YYYY-MM-DD.md` — daily Chinese report
+- `doc/YYYY-MM-DD.json` — structured raw data

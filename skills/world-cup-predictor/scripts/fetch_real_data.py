@@ -13,7 +13,8 @@ Covers: CONMEBOL, UEFA, CAF, AFC, CONCACAF, OFC = 800+ matches, 44/48 WC teams.
 import json, re, os, sys
 
 # === CONFIG ===
-TEMP = "/mnt/c/Users/skype/AppData/Local/Temp"
+TEMP = os.path.join(os.getcwd(), "doc", "_temp")
+os.makedirs(TEMP, exist_ok=True)
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # FIFA 3-letter code → standard team name mapping

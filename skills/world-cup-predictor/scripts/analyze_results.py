@@ -15,8 +15,10 @@ import json, re, os, sys, math, subprocess
 from datetime import date, timedelta
 
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
-REPORTS_DIR = os.path.join(SKILL_DIR, "..", "reports")
-ACCURACY_LOG = os.path.join(SKILL_DIR, "accuracy_history.json")
+# 所有产物统一写入运行时当前目录的 doc/（SKILL.md 以绝对路径调用本脚本、不 cd）
+REPORTS_DIR = os.path.join(os.getcwd(), "doc")
+os.makedirs(REPORTS_DIR, exist_ok=True)
+ACCURACY_LOG = os.path.join(REPORTS_DIR, "accuracy_history.json")
 PARAM_FILE = os.path.join(SKILL_DIR, "param_overrides.json")
 
 # 中文→英文队名 (与 translations.py 保持一致)

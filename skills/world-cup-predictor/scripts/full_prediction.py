@@ -242,7 +242,10 @@ def apply_injury_updates(team_data):
 # 中文队名 → 英文队名反向映射 (用于解析历史报告)
 REVERSE_TEAM_CN = {v: k for k, v in TEAM_CN.items()}
 
-REPORTS_DIR = os.path.join(SKILL_DIR, "..", "reports")
+# 所有产物统一写入运行时当前目录的 doc/（SKILL.md 以绝对路径调用本脚本、不 cd）
+# 注意：原代码引用了未定义的 SKILL_DIR（全文仅此一处），改用 getcwd 既统一输出目录也顺带修复了 NameError
+REPORTS_DIR = os.path.join(os.getcwd(), "doc")
+os.makedirs(REPORTS_DIR, exist_ok=True)
 
 def load_previous_report():
     """扫描历史报告, 返回最新一份的夺冠率和金靴数据."""

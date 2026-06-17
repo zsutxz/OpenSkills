@@ -6,12 +6,19 @@ Usage:
     python3 ~/.hermes/skills/everyday-news/scripts/fetch_news.py
 
 Output:
-    - /mnt/e/AI/hermes-agent/Learning/news/YYYY-MM-DD.md  (English raw)
-    - /mnt/e/AI/hermes-agent/Learning/news/YYYY-MM-DD.json (structured data)
+    - ./doc/YYYY-MM-DD.md  (English raw)
+    - ./doc/YYYY-MM-DD.json (structured data)
 """
-import subprocess, html, re, datetime, os, json, urllib.request
+import subprocess, html, re, datetime, os, json, urllib.request, sys
 
-NEWS_DIR = "/mnt/e/AI/hermes-agent/Learning/news"
+# Windows 控制台默认 GBK，print 含 emoji 的汇总会抛 UnicodeEncodeError，强制 utf-8 输出
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
+# 所有产物统一写入运行时当前目录的 doc/（SKILL.md 以绝对路径调用本脚本、不 cd，保证 getcwd 为用户目录）
+NEWS_DIR = os.path.join(os.getcwd(), "doc")
 os.makedirs(NEWS_DIR, exist_ok=True)
 
 SOURCES = {

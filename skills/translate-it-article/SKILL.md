@@ -49,8 +49,8 @@ allowed-tools: [WebFetch, Read, Write]
 ## 输出与保存
 
 **文件命名**
-- URL 文章：`[网站名]_[文章标题]_zh.md`
-- 粘贴文本：`翻译文章_[日期时间]_zh.md`
+- URL 文章：`doc/[网站名]_[文章标题]_zh.md`
+- 粘贴文本：`doc/翻译文章_[日期时间]_zh.md`
 
 **文件结构**
 ```markdown
