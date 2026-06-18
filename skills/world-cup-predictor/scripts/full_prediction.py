@@ -81,8 +81,9 @@ FIFA_RANK = {
 
 # Bet365赔率隐含概率 (2026.05.13)
 # [C] 赔率校准: 用市场赔率反向拉升评分
-# The Odds API Key (免费注册: the-odds-api.com)
-ODDS_API_KEY = os.environ.get("ODDS_API_KEY", "beeb8681d087151933a2aae174588541")
+# The Odds API Key — 必须通过环境变量提供，切勿硬编码（历史版本曾在此泄露真实密钥）
+# 免费注册: the-odds-api.com ；设置示例: export ODDS_API_KEY="你的key"
+ODDS_API_KEY = os.environ.get("ODDS_API_KEY", "")
 
 # 初始赔率数据 (会被API实时数据覆盖)
 BET365_IMPLIED = {}
@@ -100,6 +101,9 @@ def fetch_live_odds():
     使用Betfair数据(超额赔付率最低, 最准确).
     返回 {球队名: 隐含概率%} 字典.
     """
+    if not ODDS_API_KEY:
+        print("  [赔率] 未设置 ODDS_API_KEY 环境变量，跳过实时赔率校准（使用默认评分）")
+        return None, None
     url = (f"https://api.the-odds-api.com/v4/sports/soccer_fifa_world_cup_winner/odds/"
            f"?apiKey={ODDS_API_KEY}&regions=uk&markets=outrights")
     try:
@@ -170,72 +174,101 @@ def fetch_injuries_powershell():
     return None
 
 def parse_injuries_from_wikipedia(raw_json):
-    """解析Wikipedia返回的伤病章节HTML."""
-    injures = {}
+    """解析Wikipedia parse API返回的伤病章节HTML表格.
+
+    返回值三态(便于上层显性区分):
+      None  — 抓取/JSON 解析失败（无法判断有无伤病，需告警）
+      {}    — 解析成功但当前页面无伤病条目
+      {...} — {球员: {"team":队, "status":状态}}
+    """
+    if not raw_json:
+        return None
     try:
         data = json.loads(raw_json)
-        html = data.get("parse", {}).get("text", {}).get("*", "")
-        # 查找表格行: | team || player || injury || status
-        rows = re.findall(r'\|\s*([^|]+)\s*\|\|\s*([^|]+)\s*\|\|\s*([^|]+)\s*\|\|\s*([^|]+)', html)
-        for row in rows:
-            team = row[0].strip()
-            player = row[1].strip()
-            status = row[3].strip().lower()
-            if "out" in status or "缺席" in status or "confirmed" in status or "doubt" in status or "injured" in status:
-                injures[player] = {"team": team, "status": status}
-    except Exception:
-        pass
+    except (ValueError, TypeError):
+        return None
+    html_text = data.get("parse", {}).get("text", {}).get("*", "")
+    if not html_text:
+        return None
+
+    def _strip(cell):
+        cell = re.sub(r'<[^>]+>', ' ', cell)   # 去标签
+        cell = html.unescape(cell)
+        return re.sub(r'\s+', ' ', cell).strip()
+
+    injures = {}
+    # Wikipedia parse API 返回的是渲染后的 HTML，按表格行 <tr>/<td> 提取
+    # （旧代码误用 wikitext 的 || 语法去匹配 HTML，导致永远抓不到数据）
+    for row in re.findall(r'<tr[^>]*>(.*?)</tr>', html_text, re.DOTALL):
+        cells = re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', row, re.DOTALL)
+        if len(cells) < 4:
+            continue
+        team = _strip(cells[0])
+        player = _strip(cells[1])
+        status = _strip(cells[3]).lower()
+        if not player:
+            continue
+        if any(k in status for k in ("out", "缺席", "confirmed", "doubt", "injured", "absent", "存疑")):
+            injures[player] = {"team": team, "status": status}
     return injures
 
 def apply_injury_updates(team_data):
-    """[G] 根据爬到的伤病数据调整球队评分. 返回(修改球队数, 伤病总数)."""
+    """[G] 根据爬到的伤病数据调整球队评分. 返回(修改球队数, 伤病总数).
+
+    三种返回路径显性区分(不再静默吞失败):
+      - 连接失败      → 告警 + (0,0)
+      - 抓到页面但解析失败 → 警告 + (0,0)
+      - 解析成功无伤病  → 提示 + (0,0)
+    """
     modified = 0
     raw = fetch_injuries_powershell()
-    if raw:
-        injures = parse_injuries_from_wikipedia(raw)
-        if injures:
-            print(f"  [伤病] 从Wikipedia获取到 {len(injures)} 条伤病信息")
-            for player, info in injures.items():
-                team = info["team"]
-                status = info["status"]
-                if team in team_data and team in TEAM_SCORERS:
-                    for pname, weight in TEAM_SCORERS.get(team, []):
-                        if pname.lower() in player.lower() or player.lower() in pname.lower():
-                            # 判断伤病严重程度
-                            if "out" in status or "absent" in status or "缺席" in status:
-                                severity = 1.0
-                                sev_label = "确认缺席"
-                            elif "doubt" in status or "存疑" in status:
-                                severity = 0.5
-                                sev_label = "出战成疑"
-                            else:
-                                continue
+    if not raw:
+        print("  [伤病] Wikipedia连接失败，使用本地伤病数据")
+        return 0, 0
+    injures = parse_injuries_from_wikipedia(raw)
+    if injures is None:
+        print("  [伤病][警告] 已抓取页面但无法解析伤病表格（章节结构可能已变 section=9），跳过伤病修正")
+        return 0, 0
+    if not injures:
+        print("  [伤病] Wikipedia当前无伤病条目")
+        return 0, 0
+    print(f"  [伤病] 从Wikipedia获取到 {len(injures)} 条伤病信息")
+    for player, info in injures.items():
+        team = info["team"]
+        status = info["status"]
+        if team in team_data and team in TEAM_SCORERS:
+            for pname, weight in TEAM_SCORERS.get(team, []):
+                if pname.lower() in player.lower() or player.lower() in pname.lower():
+                    # 判断伤病严重程度
+                    if "out" in status or "absent" in status or "缺席" in status:
+                        severity = 1.0
+                        sev_label = "确认缺席"
+                    elif "doubt" in status or "存疑" in status:
+                        severity = 0.5
+                        sev_label = "出战成疑"
+                    else:
+                        continue
 
-                            # ⭐ 核心修复: 按球员权重(进球占比)决定对攻防评分的直接影响
-                            # 权重≥0.20=核心射手, 0.10~0.19=中场/边锋, <0.10=防守球员
-                            if weight >= 0.20:
-                                atk_penalty, def_penalty = 12, 4   # 核心前锋/射手
-                            elif weight >= 0.10:
-                                atk_penalty, def_penalty = 7, 5    # 中场/边锋/二前锋
-                            else:
-                                atk_penalty, def_penalty = 3, 8    # 防守球员
+                    # ⭐ 核心修复: 按球员权重(进球占比)决定对攻防评分的直接影响
+                    # 权重≥0.20=核心射手, 0.10~0.19=中场/边锋, <0.10=防守球员
+                    if weight >= 0.20:
+                        atk_penalty, def_penalty = 12, 4   # 核心前锋/射手
+                    elif weight >= 0.10:
+                        atk_penalty, def_penalty = 7, 5    # 中场/边锋/二前锋
+                    else:
+                        atk_penalty, def_penalty = 3, 8    # 防守球员
 
-                            atk_penalty *= severity
-                            def_penalty *= severity
+                    atk_penalty *= severity
+                    def_penalty *= severity
 
-                            print(f"  [伤病] ⚠️ {player}({team}) {sev_label} → 进攻-{atk_penalty:.0f} 防守-{def_penalty:.0f} (权重{weight:.2f})")
-                            td = list(team_data[team])
-                            td[3] -= atk_penalty  # 进攻评分(index 3) — 直接影响xG
-                            td[4] -= def_penalty  # 防守评分(index 4) — 直接影响失球
-                            team_data[team] = tuple(td)
-                            modified += 1
-                            break
-            return modified, len(injures)
-        else:
-            print("  [伤病] Wikipedia未找到新的伤病信息")
-    else:
-        print("  [伤病] Wikipedia连接失败,使用本地伤病数据")
-    return 0, 0
+                    print(f"  [伤病] ⚠️ {player}({team}) {sev_label} → 进攻-{atk_penalty:.0f} 防守-{def_penalty:.0f} (权重{weight:.2f})")
+                    td = list(team_data[team])
+                    td[3] -= atk_penalty  # 进攻评分(index 3) — 直接影响xG
+                    td[4] -= def_penalty  # 防守评分(index 4) — 直接影响失球
+                    team_data[team] = tuple(td)
+                    modified += 1
+                    break
+    return modified, len(injures)
 
 # ==================== [NEW] 历史对比 ====================
 
