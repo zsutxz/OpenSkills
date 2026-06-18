@@ -6,10 +6,11 @@
 - 获取: 注册后Dashboard显示API Key
 
 ## API Key
-当前使用的Key已写入 `scripts/full_prediction.py`:
+Key 通过环境变量提供（**切勿写入代码**，历史版本曾硬编码并已泄露）：
 ```
-ODDS_API_KEY = "beeb8681d087151933a2aae174588541"
+export ODDS_API_KEY="你的 key"   # the-odds-api.com 注册后从 Dashboard 获取
 ```
+未设置时 `full_prediction.py` 会跳过实时赔率校准、使用默认评分。
 
 ## 端点
 
