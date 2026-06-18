@@ -23,7 +23,7 @@
   J. 预期比分 — 平均比分替代模态值
   K. 历史对比修复 — 中文→英文队名映射
 """
-import math, random, os, sys, json, re, subprocess
+import math, random, os, sys, json, re, html, subprocess
 from datetime import date, timedelta
 
 # ======== TOP SCORER DATA ========
@@ -114,7 +114,7 @@ def fetch_live_odds():
             f"$r = $wc.DownloadString('{url}');"
             f"Write-Output $r"
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=20)
         if result.returncode == 0 and result.stdout.strip():
             data = json.loads(result.stdout)
             odds = {}
@@ -166,7 +166,7 @@ def fetch_injuries_powershell():
             "$r = $wc.DownloadString($url); "
             "Write-Output $r"
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15)
         if result.returncode == 0:
             return result.stdout
     except Exception:
@@ -858,7 +858,7 @@ def main():
         analysis_cmd = [sys.executable or "python3", 
                        os.path.join(os.path.dirname(__file__), "analyze_results.py"),
                        "--date", yesterday]
-        analysis_result = subprocess.run(analysis_cmd, capture_output=True, text=True, timeout=60)
+        analysis_result = subprocess.run(analysis_cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
         if analysis_result.returncode == 0:
             for line in analysis_result.stdout.split('\n'):
                 if line.strip():
