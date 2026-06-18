@@ -135,7 +135,13 @@ def run_backtest(groups, all_teams, fr_dict, actual, champ, weight, year, N=500)
     round_err=0
     for t in TEAMS:
         cp=cc.get(t,0)/N;ap=ac.get(t,0)/N
-        prd=1 if ap<0.5 else 2 if ap<0.5 else 3 if cp<0.025 else 4 if cp<0.05 else 5 if cp<0.1 else 6 if cp<0.2 else 7
+        if ap<0.3: prd=1
+        elif ap<0.5: prd=2
+        elif cp>0.2: prd=7
+        elif cp>0.1: prd=6
+        elif cp>0.05: prd=5
+        elif cp>0.025: prd=4
+        else: prd=3
         round_err+=abs(prd-actual.get(t,1))
     avg_err=round_err/len(TEAMS)
     top3=[t for t,_ in cs[:3]]

@@ -202,7 +202,7 @@ def print_all_ratings():
     print(f"{'Team':25s} {'GF/M':>6s} {'GA/M':>6s} {'Conf':>10s} {'AdjGF':>6s} {'AdjGA':>6s} {'NEWatk':>6s} {'NEWdfn':>6s}")
     print("-"*75)
     for team, rank in sorted(FIFA_2026.items(), key=lambda x: x[1]):
-        atk, dfn = get_real_atk_dfn(team)
+        atk, dfn = get_qualifying_rating(team)
         if team in GF_GA_DATA:
             gf_m, ga_m, mp = GF_GA_DATA[team]
             conf = CONF_MAP.get(team, "?")

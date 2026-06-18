@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
 数据驱动 vs 人工评分 — 2022回测对比
+
+⚠️ 诚实性声明: 下方 MANUAL_TD（人工评分）为主观赛前估计，与 backtest_2022.py 的
+   TEAM_DATA_2022 同源，数值无法证明完全客观。本脚本的「人工 vs 数据」对比结论
+   仅供方法演示，不可作为模型质量证据。
 """
 import math, random, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

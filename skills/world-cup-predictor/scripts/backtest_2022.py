@@ -3,9 +3,21 @@
 2022世界杯回测 — 验证预测模型准确性
 ====================================
 用相同引擎跑2022世界杯数据，对比实际结果。
+
+⚠️ 诚实性声明: 下方 TEAM_DATA_2022 为人工填写的主观赛前估计，并非 compute_rating
+   数据推导。数值大体参考赛前 FIFA 排名与市场赔率，但无法证明完全客观，且与
+   backtest_2018.py / backtest_2022_analysis.py 的数据驱动路径不一致。
+   故本脚本的回测数字仅供方法演示，不可作为模型质量的证据——可信回测请参考
+   backtest_2018.py（compute_rating，历史维度严格只用 ≤2018 数据）。
 """
 import math, random, os, sys
 from datetime import date
+
+# Windows 控制台默认 GBK，print 含 emoji 的汇总会 UnicodeEncodeError，强制 utf-8 输出
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 # ======== 2022世界杯真实分组 ========
 GROUPS_2022 = {
@@ -37,7 +49,7 @@ FIFA_RANK_2022 = {
 
 # 8维评分 (2022世界杯前状态)
 TEAM_DATA_2022 = {
-    "Argentina":(88,88,92,85,82,65,85,0),      # 冠军, Messi巅峰
+    "Argentina":(88,88,92,85,82,65,85,0),      # 夺冠热门, 梅西领衔(赛前赔率前三)
     "France":(85,90,90,90,80,68,88,-0.5),      # 卫冕冠军, 伤病(坎特/博格巴/本泽马)
     "Brazil":(90,92,90,90,82,60,82,0),         # FIFA#1, Neymar领衔
     "England":(85,75,88,85,82,62,82,0),        # 2018四强班底
@@ -66,7 +78,7 @@ TEAM_DATA_2022 = {
     "Ghana":(68,45,68,68,64,58,64,0),          # 青年军
     "Costa Rica":(66,42,66,64,66,60,66,0),     # 2014黑马, 老化
     "Australia":(66,48,66,64,68,58,64,0),      # 附加赛晋级
-    "Saudi Arabia":(64,40,64,64,62,55,64,0),   # 击败阿根廷的冷门
+    "Saudi Arabia":(64,40,64,64,62,55,64,0),   # 亚洲劲旅
     "Tunisia":(66,40,64,64,66,58,64,0),        # 防守型
     "Qatar":(62,20,62,62,62,55,62,0),          # 东道主, 首次参赛
 }
@@ -394,7 +406,7 @@ def main():
     for cont, teams in continents.items():
         valid = [t for t in teams if t in TEAMS]
         if not valid: continue
-        cont_err = sum(abs(pred_rd_from_champ(cc.get(t,0)/N_SIM) - ACTUAL_RESULTS.get(t,1)) for t in valid) / len(valid)
+        cont_err = sum(abs(pred_rd_from_champ(champ_count.get(t,0)/N_SIM) - ACTUAL_RESULTS.get(t,1)) for t in valid) / len(valid)
         print(f"     {cont}: 平均误差 {cont_err:.2f} 轮 ({len(valid)}队)")
     
     print(f"\n{'='*65}")
@@ -406,8 +418,19 @@ def main():
     print(f"  平均误差: {avg_err:.2f} 轮次")
 
 def pred_rd_from_champ(cp):
-    """根据夺冠率估算预测轮次"""
-    adv_pct = adv_count  # This won't work as a standalone function
-    
-# 重写一个可调用的版本
+    """根据夺冠率估算预测轮次: 冠军=7, 亚军=6, 四强=5, 八强=4, 16强=3, 小组赛=1.
+
+    局限: 仅凭夺冠率无法区分 cp≈0 的队伍，这些队伍一律视为小组赛出局(1)，
+    因此按大洲的轮次误差主要反映少数争冠队伍的预测偏差。
+    """
+    if cp > 0.20: return 7
+    if cp > 0.10: return 6
+    if cp > 0.05: return 5
+    if cp > 0.025: return 4
+    if cp > 0.01: return 3
+    return 1
+
+
+if __name__ == "__main__":
+    main()
 

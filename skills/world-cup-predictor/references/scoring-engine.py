@@ -78,23 +78,24 @@ def predict_match(t1_score, t2_score, t1_atk, t1_def, t2_atk, t2_def,
     elif g2 > g1:
         return "t2", g1, g2
     else:
-        # Draw - handle extra time for knockouts
-        if is_knockout:
-            # Extra time: add 0-2 goals based on score difference
-            diff_elo = (t1_score - t2_score) / 50
-            extra_seed = seed + 999 if seed else None
-            random.seed(extra_seed)
-            extra_prob = 1 / (1 + pow(10, -diff_elo / 10))
-            if random.random() < extra_prob:
+        # 平局：小组赛直接判平，淘汰赛才进加时/点球
+        if not is_knockout:
+            return "draw", g1, g2
+        # 淘汰赛加时：按实力差追加 0-1 球
+        diff_elo = (t1_score - t2_score) / 50
+        extra_seed = seed + 999 if seed else None
+        random.seed(extra_seed)
+        extra_prob = 1 / (1 + pow(10, -diff_elo / 10))
+        if random.random() < extra_prob:
+            g1 += 1
+        else:
+            g2 += 1
+        if g1 == g2:  # 仍平 → 点球，强队略占优
+            random.seed(extra_seed + 1)
+            if random.random() < 0.52:
                 g1 += 1
             else:
                 g2 += 1
-            if g1 == g2:  # Still tied → penalties, higher score wins
-                random.seed(extra_seed + 1)
-                if random.random() < 0.52:  # slight edge to higher-rated team on pens
-                    g1 += 1
-                else:
-                    g2 += 1
         return ("t1" if g1 > g2 else "t2"), g1, g2
 
 # === GROUP STAGE ===
