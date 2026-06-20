@@ -1,6 +1,6 @@
 {
   "name": "open-skills",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "个人技能合集与 Claude Code 插件教学示例。开发工具：代码库统计、规范提交、提交规范、敏感信息守卫、会话恢复；扩展场景：世界杯预测、IT 文章翻译、每日新闻、Claude 生态更新、项目编排。完整展示 Commands、Agents、Skills、Hooks 四类组件的激活机制。",
   "author": {
     "name": "OpenSkills Contributors",
