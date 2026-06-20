@@ -23,8 +23,7 @@ node_modules/
 # Temp
 *.tmp
 *.bak
-doc/
-claude-updater-reports/
+docs/
 
 # 会话恢复运行时产物（SessionEnd 钩子写的指针快照）
 .session-resume/

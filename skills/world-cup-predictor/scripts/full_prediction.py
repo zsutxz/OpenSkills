@@ -275,9 +275,9 @@ def apply_injury_updates(team_data):
 # 中文队名 → 英文队名反向映射 (用于解析历史报告)
 REVERSE_TEAM_CN = {v: k for k, v in TEAM_CN.items()}
 
-# 所有产物统一写入运行时当前目录的 doc/（SKILL.md 以绝对路径调用本脚本、不 cd）
+# 所有产物统一写入运行时当前目录的 docs/world-cup-predictor/（SKILL.md 以绝对路径调用本脚本、不 cd）
 # 注意：原代码引用了未定义的 SKILL_DIR（全文仅此一处），改用 getcwd 既统一输出目录也顺带修复了 NameError
-REPORTS_DIR = os.path.join(os.getcwd(), "doc")
+REPORTS_DIR = os.path.join(os.getcwd(), "docs", "world-cup-predictor")
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 def load_previous_report():
@@ -712,65 +712,67 @@ def main():
             print(f"  {i}. {tn(t):<20} {expected_pts[t]:.1f}分 GD:{expected_gd[t]:+.1f}  晋级:{adv_pct:.0f}%")
     
     # ===== 历史对比 =====
+    # max_diff_teams / change_explanations 提前初始化：首次运行（无历史报告）时 prev_champ 为 None，
+    # 下方整个对比段会被 `if prev_champ:` 跳过，但报告写入段仍会引用这两个变量，必须先定义以防 NameError
+    max_diff_teams = []
+    change_explanations = []
     if prev_champ:
         print(f"\n{'='*60}")
         print(f"  📊 与上次预测对比 (v{prev_ver})")
         print(f"{'='*60}")
-    print(f"  {'球队':<20} {'上次%':<8} {'本次%':<8} {'变化':<8}")
-    print("-"*50)
-    # 取前10 + 历史前10中有变动的
-    all_teams_for_compare = set()
-    for team, _ in cs[:12]:
-        all_teams_for_compare.add(team)
-    for team in prev_champ:
-        if prev_champ[team] > 1.0:
+        print(f"  {'球队':<20} {'上次%':<8} {'本次%':<8} {'变化':<8}")
+        print("-"*50)
+        # 取前10 + 历史前10中有变动的
+        all_teams_for_compare = set()
+        for team, _ in cs[:12]:
             all_teams_for_compare.add(team)
-    # 按本次概率排序
-    team_pct_new = {team: c/N_SIM*100 for team, c in cs}
-    sorted_teams = sorted(all_teams_for_compare, key=lambda t: team_pct_new.get(t, 0), reverse=True)
-    max_diff_teams = []
-    for team in sorted_teams[:15]:
-        pct_new = team_pct_new.get(team, 0)
-        pct_old = prev_champ.get(team, 0)
-        diff = pct_new - pct_old
-        arr = "↑" if diff > 0.3 else "↓" if diff < -0.3 else "→"
-        bar = "📈" if diff > 0.3 else "📉" if diff < -0.3 else "➡️"
-        if abs(diff) > 0.5:
-            max_diff_teams.append((team, diff))
-        print(f"  {tn(team):<20} {pct_old:<7.1f}%  {pct_new:<7.1f}%  {bar} {arr}{abs(diff):.1f}%")
-    
-    # 变化原因分析
-    print(f"\n  📋 变化原因分析:")
-    change_explanations = []
-    
-    # 1. 版本变更
-    if prev_ver and prev_ver != "4.9":
-        change_explanations.append(f"• 引擎版本 v{prev_ver} → v4.9: 9维权重(state22%/league8%/def18%/tactics13%/fifa12%) + 新增联赛表现")
-    elif prev_ver and prev_ver == "4.9":
-        change_explanations.append(f"• 版本未变更, 仅随机种子差异 (负二项分布特性)")
-    
-    # 2. 伤病变更
-    if injury_count > 0:
-        change_explanations.append(f"• 伤病更新: Wikipedia获取到 {injury_count} 条伤病信息, {injured_teams} 支队评分调整 ({infected_desc})")
-    
-    # 3. 数据未变更
-    if not change_explanations and prev_ver:
-        change_explanations.append("• 数据未更新 (无新伤病/版本无变更), 结果稳定")
-        if max_diff_teams:
-            change_explanations.append(f"• 但部分球队有>0.5%波动 (负二项分布随机性导致)")
-    
-    for exp in change_explanations[:5]:
-        print(f"  {exp}")
-    
-    # 对变化最大的球队给出原因
-    if max_diff_teams and change_explanations:
-        print(f"  📈 显著变化球队:")
-        for team, diff in sorted(max_diff_teams, key=lambda x: abs(x[1]), reverse=True)[:3]:
-            if abs(diff) >= 1.0:
-                if "伤病" in str(change_explanations):
-                    print(f"    {team}: {diff:+.1f}% (伤病/引擎升级综合影响)")
-                else:
-                    print(f"    {team}: {diff:+.1f}% (引擎升级导致权重调整)")
+        for team in prev_champ:
+            if prev_champ[team] > 1.0:
+                all_teams_for_compare.add(team)
+        # 按本次概率排序
+        team_pct_new = {team: c/N_SIM*100 for team, c in cs}
+        sorted_teams = sorted(all_teams_for_compare, key=lambda t: team_pct_new.get(t, 0), reverse=True)
+        for team in sorted_teams[:15]:
+            pct_new = team_pct_new.get(team, 0)
+            pct_old = prev_champ.get(team, 0)
+            diff = pct_new - pct_old
+            arr = "↑" if diff > 0.3 else "↓" if diff < -0.3 else "→"
+            bar = "📈" if diff > 0.3 else "📉" if diff < -0.3 else "➡️"
+            if abs(diff) > 0.5:
+                max_diff_teams.append((team, diff))
+            print(f"  {tn(team):<20} {pct_old:<7.1f}%  {pct_new:<7.1f}%  {bar} {arr}{abs(diff):.1f}%")
+
+        # 变化原因分析
+        print(f"\n  📋 变化原因分析:")
+
+        # 1. 版本变更
+        if prev_ver and prev_ver != "4.9":
+            change_explanations.append(f"• 引擎版本 v{prev_ver} → v4.9: 9维权重(state22%/league8%/def18%/tactics13%/fifa12%) + 新增联赛表现")
+        elif prev_ver and prev_ver == "4.9":
+            change_explanations.append(f"• 版本未变更, 仅随机种子差异 (负二项分布特性)")
+
+        # 2. 伤病变更
+        if injury_count > 0:
+            change_explanations.append(f"• 伤病更新: Wikipedia获取到 {injury_count} 条伤病信息, {injured_teams} 支队评分调整 ({infected_desc})")
+
+        # 3. 数据未变更
+        if not change_explanations and prev_ver:
+            change_explanations.append("• 数据未更新 (无新伤病/版本无变更), 结果稳定")
+            if max_diff_teams:
+                change_explanations.append(f"• 但部分球队有>0.5%波动 (负二项分布随机性导致)")
+
+        for exp in change_explanations[:5]:
+            print(f"  {exp}")
+
+        # 对变化最大的球队给出原因
+        if max_diff_teams and change_explanations:
+            print(f"  📈 显著变化球队:")
+            for team, diff in sorted(max_diff_teams, key=lambda x: abs(x[1]), reverse=True)[:3]:
+                if abs(diff) >= 1.0:
+                    if "伤病" in str(change_explanations):
+                        print(f"    {team}: {diff:+.1f}% (伤病/引擎升级综合影响)")
+                    else:
+                        print(f"    {team}: {diff:+.1f}% (引擎升级导致权重调整)")
 
     # Save report
     rp = os.path.join(REPORTS_DIR, date.today().strftime("%Y%m%d") + ".md")

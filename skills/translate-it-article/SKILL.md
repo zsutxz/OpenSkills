@@ -12,6 +12,7 @@ allowed-tools: [WebFetch, Read, Write]
 
 此 skill 自动激活，无需手动 `/` 调用。识别到翻译意图后，从用户输入中获取待翻译内容：
 
+- **本地文件路径**（如 `D:\notes\article.md`、`./paper.md`，且该文件确实存在）：用 Read 读取正文；译文输出到该文件**所在目录**、文件名 `原名_zh.扩展名`（详见「输出与保存」）
 - **URL**（如 `https://example.com/post`）：用 WebFetch 抓取正文
 - **直接粘贴的文本**：直接翻译
 
@@ -48,9 +49,15 @@ allowed-tools: [WebFetch, Read, Write]
 
 ## 输出与保存
 
-**文件命名**
-- URL 文章：`doc/[网站名]_[文章标题]_zh.md`
-- 粘贴文本：`doc/翻译文章_[日期时间]_zh.md`
+**输出位置与命名**（按输入类型决定）
+
+- **本地文件输入**：译文写到该文件**所在目录**，文件名在原名与扩展名之间插入 `_zh`。
+  - 例：`notes/article.md` → `notes/article_zh.md`；`paper.txt` → `paper_zh.txt`
+  - 若该 `_zh` 文件已存在则覆盖
+- **URL 文章**（无本地文件）：`docs/translate-it-article/[网站名]_[文章标题]_zh.md`
+- **粘贴文本**（无本地文件）：`docs/translate-it-article/翻译文章_[日期时间]_zh.md`
+
+> 判断输入类型：用户消息中出现本地路径且文件确实存在，按「本地文件」处理（译文跟随该文件）；否则按 URL / 粘贴文本回退到 `docs/translate-it-article/`。
 
 **文件结构**
 ```markdown

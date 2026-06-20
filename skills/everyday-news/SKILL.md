@@ -37,11 +37,11 @@ prerequisites:
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/everyday-news/scripts/fetch_news.py"
 ```
 
-> 在当前工作目录直接运行（**不 cd**），脚本把原始英文数据写入当前目录的 `doc/`（`doc/YYYY-MM-DD.json` + `doc/YYYY-MM-DD.md`），后续再做翻译、去重和排版。所有最终产物也统一写入 `doc/`。
+> 在当前工作目录直接运行（**不 cd**），脚本把原始英文数据写入当前目录的 `docs/everyday-news/`（`docs/everyday-news/YYYY-MM-DD.json` + `docs/everyday-news/YYYY-MM-DD.md`），后续再做翻译、去重和排版。所有最终产物也统一写入 `docs/everyday-news/`。
 
 ### 2. 读取结果
 
-- 优先读取 `doc/YYYY-MM-DD.json`
+- 优先读取 `docs/everyday-news/YYYY-MM-DD.json`
 - 如需查看原始标题或历史对比，再读同目录下的 Markdown
 
 ### 3. 搜索 Claude Code & Codex 技巧
@@ -60,7 +60,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/everyday-news/scripts/fetch_news.py"
 
 - 统一翻译成简体中文，不显示任何 URL
 - 按栏目输出：财经 / 政治 / 世界杯 / 科技 AI / Claude Code & Codex
-- 最终日报写入 `doc/YYYY-MM-DD.md`
+- 最终日报写入 `docs/everyday-news/YYYY-MM-DD.md`
 
 ## 核心规则
 

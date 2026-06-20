@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "open-skills",
-      "description": "开发者生产力工具包：代码库统计分析、规范提交信息生成、代码库架构分析、Git 提交规范知识、敏感信息检测守卫。完整的 Claude Code 插件示例，展示所有组件类型（Commands、Agents、Skills、Hooks）。",
+      "description": "个人技能合集，一仓两用：既是 Claude Code 插件，又是组件开发教学示例。开发工具（stats 代码库统计、commit 规范提交、commit-style 提交规范、guard-secrets 敏感信息守卫、session-resume 会话恢复）与扩展场景（world-cup-predictor 世界杯预测、translate-it-article IT 文章翻译、everyday-news 每日新闻、claude-updater Claude 生态更新、project-orchestrator + project-role-worker 项目编排与兜底代理），完整覆盖 Commands、Agents、Skills、Hooks 四类组件。",
       "author": {
         "name": "zsutxz",
         "url": "https://github.com/zsutxz"

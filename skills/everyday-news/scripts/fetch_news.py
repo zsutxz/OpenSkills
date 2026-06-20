@@ -6,8 +6,8 @@ Usage:
     python3 ~/.hermes/skills/everyday-news/scripts/fetch_news.py
 
 Output:
-    - ./doc/YYYY-MM-DD.md  (English raw)
-    - ./doc/YYYY-MM-DD.json (structured data)
+    - ./docs/everyday-news/YYYY-MM-DD.md  (English raw)
+    - ./docs/everyday-news/YYYY-MM-DD.json (structured data)
 """
 import subprocess, html, re, datetime, os, json, urllib.request, sys
 
@@ -17,8 +17,8 @@ try:
 except Exception:
     pass
 
-# 所有产物统一写入运行时当前目录的 doc/（SKILL.md 以绝对路径调用本脚本、不 cd，保证 getcwd 为用户目录）
-NEWS_DIR = os.path.join(os.getcwd(), "doc")
+# 所有产物统一写入运行时当前目录的 docs/everyday-news/（SKILL.md 以绝对路径调用本脚本、不 cd，保证 getcwd 为用户目录）
+NEWS_DIR = os.path.join(os.getcwd(), "docs", "everyday-news")
 os.makedirs(NEWS_DIR, exist_ok=True)
 
 SOURCES = {

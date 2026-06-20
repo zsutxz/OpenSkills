@@ -13,7 +13,7 @@ Covers: CONMEBOL, UEFA, CAF, AFC, CONCACAF, OFC = 800+ matches, 44/48 WC teams.
 import json, re, os, sys
 
 # === CONFIG ===
-TEMP = os.path.join(os.getcwd(), "doc", "_temp")
+TEMP = os.path.join(os.getcwd(), "docs", "world-cup-predictor", "_temp")
 os.makedirs(TEMP, exist_ok=True)
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

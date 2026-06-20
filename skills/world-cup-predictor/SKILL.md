@@ -25,7 +25,7 @@ metadata:
 ## 执行顺序
 
 1. 运行主引擎：在当前工作目录直接运行（**不 cd**）`python3 "${CLAUDE_PLUGIN_ROOT}/skills/world-cup-predictor/scripts/full_prediction.py"`
-2. 读取当天报告：`doc/YYYYMMDD.md`
+2. 读取当天报告：`docs/world-cup-predictor/YYYYMMDD.md`
 3. 按问题类型只输出对应内容
 4. 需要赛后对比时，再运行 `analyze_results.py`
 

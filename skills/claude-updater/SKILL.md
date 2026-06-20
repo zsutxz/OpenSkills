@@ -63,7 +63,7 @@ claude plugin update <plugin>@<marketplace> -s project  # 指定范围：user/pr
 
 用户问"新功能"、"技巧"、"changelog"时触发。
 
-**缓存位置**：`doc/tips/`
+**缓存位置**：`docs/claude-updater/tips/`
 
 **类别与有效期**：
 
@@ -78,7 +78,7 @@ claude plugin update <plugin>@<marketplace> -s project  # 指定范围：user/pr
 
 ```bash
 # 以 new_features（TTL=3天）为例：find 有输出即已过期
-find doc/tips/new_features.md -mtime +3 2>/dev/null
+find docs/claude-updater/tips/new_features.md -mtime +3 2>/dev/null
 ```
 
 逻辑：
@@ -111,9 +111,9 @@ date -Iseconds    # 例如 2026-06-15T09:30:00+08:00
 
 ### 4. 写入报告
 
-保存到当前工作目录 `doc/`：
+保存到当前工作目录 `docs/claude-updater/`：
 
-1. 归档旧报告：`doc/latest.md` → `doc/history/<时间戳>.md`（时间戳用 `date +%Y-%m-%d_%H%M%S` 生成）
+1. 归档旧报告：`docs/claude-updater/latest.md` → `docs/claude-updater/history/<时间戳>.md`（时间戳用 `date +%Y-%m-%d_%H%M%S` 生成）
 2. 写入新 `latest.md`
 3. 更新 `index.json`（记录 `last_check`、`last_update`、各组件版本，时间戳同样用 `date` 命令生成）
 
