@@ -20,7 +20,7 @@ recommend.py（主入口）
                 ├── indicators.sma / ema / macd / kdj / rsi / momentum ...
                 └── → {score, factors{tech,money,sector,risk}, reasons[]}
 
-   排序 Top 10 → build_report() → docs/a-share-recommender/YYYYMMDD.md
+   排序 Top 10 → build_report() → docs/a-share/YYYYMMDD.md
 ```
 
 ## 分层抓取（性能核心）
@@ -41,11 +41,11 @@ A 股约 5000 只，**禁止**对全市场逐只拉 K 线（5000 次 PowerShell 
 - **`data_sources.py`** — 纯数据获取。`fetch_powershell()` 是唯一网络出口（PowerShell 桥接）。所有 `fetch_*` 失败返回空集合，不抛异常。
 - **`indicators.py`** — 纯函数，无 IO。输入 K 线序列，输出指标值。可独立单测。
 - **`scoring.py`** — 过滤 + 评分。`score_stock()` 是核心，输入一只股票的全部数据，输出总分 + 分项 + 理由。
-- **`recommend.py`** — 编排 + 输出。串行调用上述模块，生成 markdown 报告写入 `docs/a-share-recommender/`。
+- **`recommend.py`** — 编排 + 输出。串行调用上述模块，生成 markdown 报告写入 `docs/a-share/`。
 
 ## 输出位置
 
-报告写到 `os.getcwd()/docs/a-share-recommender/YYYYMMDD.md`（用户工作目录，非插件目录；`docs/` 已 gitignore）。SKILL.md 以绝对路径 `${CLAUDE_PLUGIN_ROOT}` 调用 `recommend.py` 且**不 cd**，保证 `os.getcwd()` 是用户目录。
+报告写到 `os.getcwd()/docs/a-share/YYYYMMDD.md`（用户工作目录，非插件目录；`docs/` 已 gitignore）。SKILL.md 以绝对路径 `${CLAUDE_PLUGIN_ROOT}` 调用 `recommend.py` 且**不 cd**，保证 `os.getcwd()` 是用户目录。
 
 ## 昨日对比
 

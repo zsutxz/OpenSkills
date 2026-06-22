@@ -4,7 +4,7 @@
 A 股盘后推荐 主入口
 ==================
 盘后跑一次：抓行情 → 过滤候选池 → 多因子评分 → 输出市场复盘 + 次日推荐 Top 10。
-报告写到 {当前工作目录}/docs/a-share-recommender/YYYYMMDD.md（不 cd，不污染插件仓）。
+报告写到 {当前工作目录}/docs/a-share/YYYYMMDD.md（不 cd，不污染插件仓）。
 
 用法:
     python3 recommend.py [候选数(默认120)] [Top N(默认10)]
@@ -26,9 +26,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import data_sources as ds  # noqa: E402
 import scoring as sc       # noqa: E402
 
-# 所有产物统一写入运行时当前目录的 docs/a-share-recommender/
+# 所有产物统一写入运行时当前目录的 docs/a-share/
 # （SKILL.md 以绝对路径调用本脚本、不 cd，保证 getcwd 为用户目录）
-REPORT_DIR = os.path.join(os.getcwd(), "docs", "a-share-recommender")
+REPORT_DIR = os.path.join(os.getcwd(), "docs", "a-share")
 
 TOP_SECTORS_FOR_HEAT = 12   # 取涨幅前 N 板块拉成分股，构建个股→板块涨幅映射
 CANDIDATE_DEFAULT = 120     # 第 3 层拉 K 线的候选数（粗排后）
