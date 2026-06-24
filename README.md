@@ -10,14 +10,12 @@
 |------|-----------|----------|
 | 📋 命令 | `/open-skills:stats` | 分析代码库统计信息（语言分布、文件数、行数等） |
 | 📋 命令 | `/open-skills:commit` | 分析暂存更改，生成 Conventional Commits 格式的提交信息 |
-| 🤖 代理 | `codebase-analyst` | 代码库分析专家，识别架构模式和技术债务 |
+| 📋 命令 | `/open-skills:goal` | 把一个想法端到端推进到可发布：激活 project-orchestrator 六阶段流水线 |
 | 🤖 代理 | `project-role-worker` | 项目流水线兜底执行者，分饰需求/架构/开发/测试/审查/发布六角色 |
+| 🤖 代理 | `translate-it-article` | 将英文 IT 技术文章翻译成通俗中文并保存到本地 |
 | 🧠 技能 | `project-orchestrator` | 端到端项目交付编排：需求→架构→开发→测试→审查→发布，自主推进且可续跑 |
 | 🧠 技能 | `commit-style` | Git 提交规范知识，讨论 commit 时自动激活 |
 | 🧠 技能 | `claude-updater` | 统一管理 Claude Code 生态更新，检查 CLI、插件与新功能 |
-| 🧠 技能 | `translate-it-article` | 将英文 IT 技术文章翻译成通俗中文并保存到本地 |
-| 🧠 技能 | `everyday-news` | 每日新闻早报：财经、政治、世界杯、科技 AI 和技巧速报 |
-| 🧠 技能 | `world-cup-predictor` | 2026 世界杯预测、金靴奖、小组赛和赛后分析 |
 | 🧠 技能 | `session-resume` | "继续上一次"：读上次快照 + transcript，从断点续跑 |
 | 🛡️ 钩子 | `guard-secrets` | 写入文件前检测敏感信息（API 密钥、密码等） |
 | 🛡️ 钩子 | `session-snapshot` / `session-restore` | 退出时保存会话指针，重启时展示上次未完成任务让你选择恢复 |
@@ -97,25 +95,35 @@ git add .
 /open-skills:commit --simple
 ```
 
+#### `/open-skills:goal <项目想法>`
+
+把一个想法端到端推进到可发布状态，是 `project-orchestrator` skill 的手动入口。
+
+```
+# 直接给出想法即开跑（六阶段：需求→架构→开发→测试→审查→发布）
+/open-skills:goal 做一个 CLI 工具，把 GitHub Issues 同步成本地 Markdown
+
+# 无参数则提示你描述想法
+/open-skills:goal
+
+# 加 --auto 进入无人值守 cron 模式（每 15 分钟唤醒一次）
+/open-skills:goal --auto
+```
+
+进度持久化在目标项目的 `.project-orchestrator/` 目录；已有进度时会询问继续 / 重做 / 放弃。
+
 ### 代理
 
-`codebase-analyst` 是一个自动可用的子代理，当 Claude 判断需要深入分析代码库时会自动使用。你也可以在对话中要求：
-
-```
-请分析这个项目的架构
-帮我评估一下技术债务
-```
-
 `project-role-worker` 是项目交付流水线的兜底子代理：当编排器 `project-orchestrator` 找不到对应 `ecc:*` 专家时自动顶上，按角色完成需求/架构/开发/测试/审查/发布工作。
+
+`translate-it-article` 是英文 IT 技术文章的中译子代理：说"翻译这篇/这段""translate this""帮我翻译这篇文章"时自动调度，译成通俗中文、保留 Markdown 格式并保存为本地文件。
 
 ### 技能
 
 - `project-orchestrator`：端到端项目交付编排器。说"从零做一个项目并发布""端到端完成""接着上次项目继续""自动跑完"时自动激活，驱动子代理走完需求→架构→开发→测试→审查→发布，过程中持久化进度、可中断续跑。
 - `commit-style`：讨论 Git 提交、commit message、提交规范时自动激活，提供 Conventional Commits 规范和中文提交指南。
 - `claude-updater`：需要更新 Claude Code CLI、插件或查看新功能时自动激活。
-- `everyday-news`：每日新闻早报，涵盖财经、政治、世界杯、科技 AI、GitHub 热门仓库和 Claude Code 技巧，需要时自动激活。
-- `world-cup-predictor`：世界杯预测、金靴奖、小组赛比分和赛后分析，需要时自动激活。
-- `translate-it-article`：需要翻译英文 IT 技术文章/博客/文档时自动激活，译成通俗中文并保存为本地 Markdown 文件。
+- `session-resume`：说"继续上一次""接着上次做"时自动激活，读上次会话快照与 transcript，复述进度并从断点续跑。
 
 ### 钩子
 
@@ -131,16 +139,17 @@ OpenSkills/
 │   └── plugin.json              # 插件清单（必需）
 ├── commands/                    # 斜杠命令
 │   ├── stats.md                 #   /open-skills:stats
-│   └── commit.md                #   /open-skills:commit
+│   ├── commit.md                #   /open-skills:commit
+│   └── goal.md                  #   /open-skills:goal（项目交付流水线入口）
 ├── agents/                      # 子代理定义
-│   ├── codebase-analyst.md      #   代码库分析专家
-│   └── project-role-worker.md   #   项目流水线兜底执行者
+│   ├── project-role-worker.md   #   项目流水线兜底执行者
+│   └── translate-it-article.md  #   英文 IT 文章中译
 ├── skills/                      # 自动激活技能（每个子目录一个 skill）
 │   ├── commit-style/
 │   │   └── SKILL.md             #   Git 提交规范
 │   ├── project-orchestrator/
 │   │   └── SKILL.md             #   端到端项目交付编排器
-│   └── ...                      #   及 claude-updater / everyday-news 等
+│   └── ...                      #   及 claude-updater / session-resume 等
 ├── hooks/                       # 事件钩子
 │   ├── hooks.json               #   钩子配置
 │   └── scripts/
