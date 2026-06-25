@@ -27,3 +27,7 @@ docs/
 
 # 会话恢复运行时产物（SessionEnd 钩子写的指针快照）
 .session-resume/
+
+# Claude Code 本地运行态（不进仓库）
+.claude/settings.local.json
+.claude/worktrees/
