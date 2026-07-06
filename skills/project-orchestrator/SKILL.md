@@ -21,38 +21,26 @@ metadata:
 
 把一个项目从想法一路自主推进到可发布。三层模型：规划层拆需求/架构/切片，执行层逐切片走 TDD 红绿小循环，收尾层统一发布。子代理分工、进度全程落盘、可中断续跑。
 
-## 使用时机
-
-用户说类似下面这些话时激活：
-
-- "从零做一个 XXX 项目，端到端做完"
-- "启动一个项目并交付到 GitHub"
-- "帮我把这个想法做成可发布的产品"
-- "接着上次的项目继续 / 恢复项目进度"
-- "项目现在到哪一步了"
-- "自动跑完，不用管它"
-
-**不激活的反例**：单点任务（"修个 bug""加个按钮""重构这个函数"）不触发本 skill——那是直接干活，不是发起一个完整交付流水线。
-
 ## 核心原则
 
-1. **持续推进**：阶段内、切片之间不要停下来等用户，除非撞上第 7 节的"确认点"。
-2. **状态全落盘**：每进入/完成一个阶段或切片、每个里程碑，都更新 `state.json` 并追加 `events.log`。这是"重启后继续"的命脉。
-3. **时间戳一律用 bash `date`**，不让模型估算日期（见第 12 节）。
-4. **全部产出用中文**（代码注释、文档、报告、提交信息）。
-5. **子代理优先复用**：每阶段/每切片先尝试对应专家子代理，缺失再兜底（见第 6 节调度表）。绝不假设某个 `ecc:*` 一定存在。
-6. **失败有界**：每个阶段、每个切片 `retry_count` 上限 3，超限就暂停求助，不死磕、不空转烧预算。
-7. **切片是执行单位，TDD 测试先行**：大项目先在规划层拆成可独立交付的切片；执行层每个切片内严格走「先写测试(红)→开发到绿→小审查」红绿循环，不把开发和测试拆成两个割裂阶段。
+1. **持续推进**：阶段内、切片之间不要停下来等用户，除非撞上「确认点」节列的 5 处。
+2. **`state.json` 是唯一真相源**：每进入/完成一个阶段或切片、每个里程碑，都更新 `state.json` 并追加 `events.log`。这是"重启后继续"的命脉。TaskList 只是辅助视图；`TaskCreate/CronCreate` 等是扩展工具——若当前环境缺失，照常靠 `state.json` 跟踪与手动续跑，cron 模式自动跳过。
+3. **全部产出用中文**（代码注释、文档、报告、提交信息）。
+4. **失败有界**：每个阶段、每个切片 `retry_count` 上限 3，超限就暂停求助，不死磕、不空转烧预算。
+
+其余贯穿性约束见对应章节：时间戳用 bash `date`（「时间戳与确定性」）、子代理先探测 ecc 再调度（「调度规则」）、切片是执行单位且 TDD 测试先行（「阶段流水线/6.1」）、状态只写目标项目根不污染插件目录（「工作目录与持久化」）。
 
 ## 意图路由
 
 | 用户说 | 动作 |
 |--------|------|
-| 从零做 / 启动 / 端到端完成一个项目 | → 第 5 节「新建流程」 |
-| 继续 / 接着 / 恢复上次项目 | → 第 9 节「恢复流程」 |
+| 从零做 / 启动 / 端到端完成一个项目 | → 「新建流程」 |
+| 继续 / 接着 / 恢复上次项目 | → 「恢复流程」 |
 | 项目什么状态 / 到哪一步了 | `cat state.json` → 汇报当前 stage/切片与产物 |
-| 自动跑完 / 无人值守 | → 第 11 节「自主模式（cron）」 |
+| 自动跑完 / 无人值守 | → `templates/autonomous-cron.md` |
 | 只做规划层某阶段（如"只做架构"）/ 只跑某个切片 | 单阶段/单切片执行后回到 idle，不强制跑完全流程 |
+
+**不激活的反例**：单点任务（"修个 bug""加个按钮""重构这个函数""改文档"）不触发本 skill——那是直接干活，不是发起完整交付流水线。
 
 ## 工作目录与持久化
 
@@ -73,6 +61,8 @@ metadata:
     └── release-notes.md
 ```
 
+完整 `state.json` schema、设计要点、原子写入法、旧版兼容见 `references/state-schema.md`。
+
 **定位项目根**（恢复与新建都先做这步）：
 
 1. 当前工作目录下存在 `.project-orchestrator/state.json` → 即该项目，直接用。
@@ -90,9 +80,9 @@ metadata:
    PROJ_ROOT="<项目根绝对路径>"
    mkdir -p "$PROJ_ROOT/.project-orchestrator/artifacts"
    ```
-3. **写入初始 `state.json`**（时间戳用 `date` 生成，schema 见第 8 节）：`status=running`、`current_stage=planning`、`current_slice_index=null`、`planning` 三阶段均 `pending`、`slices=[]`、`release` 为 `pending`。
+3. **写入初始 `state.json`**（时间戳用 `date` 生成，schema 见 `references/state-schema.md`）：`status=running`、`current_stage=planning`、`current_slice_index=null`、`planning` 三阶段均 `pending`、`slices=[]`、`release` 为 `pending`。
 4. **`TaskCreate` 规划层三个任务**（requirements / architecture / slicing），与 `state.json.planning` 对齐。切片任务待 slicing 完成后按 `slices[]` 补建，发布任务最后建——始终让 TaskList 与 state.json 对齐。
-5. 追加首条 `events.log`，进入第 6 节「阶段流水线」。
+5. 追加首条 `events.log`，进入「阶段流水线」。
 
 ## 阶段流水线（核心）
 
@@ -181,7 +171,7 @@ e. release.status=completed，顶层 status=completed，停止
 - **先探测再调度，不靠"试调用-失败"兜底**：开工前用 Bash 跑一次 `claude plugin list`（或检查 `~/.claude/plugins/`），判断 ecc 是否安装。
   - 装了 ecc → 优先用调度表"优先子代理"列的专家（能力更强）。
   - 没装 ecc → **直接用本插件自带的 `subagent_type=project-role-worker`**（一定存在），在 prompt 里说明扮演哪个角色、任务、输入输出产物路径。
-- `project-role-worker` 是本插件自带、确定可用的兜底，永远是安全默认。**绝不假设某个 `ecc:*` 一定存在**，也不要把 ecc 缺失当错误抛给用户。
+- `project-role-worker` 是本插件自带、确定可用的兜底，永远是安全默认。**绝不假设某个 `ecc:*` 一定存在**，ecc 缺失也不是错误——静默走兜底即可，不要报错卡住。
 - 兜底角色定义见 `agents/project-role-worker.md`。
 
 ## 确认点（仅这 5 处停顿等用户）
@@ -196,103 +186,12 @@ e. release.status=completed，顶层 status=completed，停止
 
 **这五处之外，一律自主推进，不要每阶段/每切片都来问"要不要继续"。** 用户确认后，把结论记进 `state.json.decisions`（带时间戳，`point` 用 requirements/architecture/slicing/release），便于恢复时回忆"上次拍板了什么"。
 
-## state.json
-
-控制状态文件，**只存最小控制信息**；真正的需求/架构/切片正文放 `artifacts/*.md`，这里只放指针与进度。schema：
-
-```json
-{
-  "schema_version": "2",
-  "project": {
-    "name": "项目名",
-    "goal": "一句话目标",
-    "repo_url": null,
-    "tech_stack": [],
-    "root_path": "项目根绝对路径"
-  },
-  "status": "running | completed | abandoned | paused",
-  "current_stage": "planning | execution | release",
-  "current_slice_index": null,
-  "created_at": "ISO 时间戳（bash date -Iseconds）",
-  "updated_at": "ISO 时间戳",
-  "completed_at": null,
-  "planning": {
-    "requirements": {
-      "status": "pending | in_progress | completed | failed",
-      "started_at": null,
-      "completed_at": null,
-      "retry_count": 0,
-      "max_retries": 3,
-      "artifact": "artifacts/requirements.md",
-      "notes": ""
-    },
-    "architecture": { /* 同构, artifact: "artifacts/architecture.md" */ },
-    "slicing":      { /* 同构, artifact: "artifacts/slices.md" */ }
-  },
-  "slices": [
-    {
-      "id": "slice-1",
-      "title": "切片标题",
-      "goal": "这个切片交付什么",
-      "acceptance": ["可验证的验收条件1", "..."],
-      "status": "pending | in_progress | completed | failed",
-      "tdd": {
-        "test":   { "status": "pending | completed", "started_at": null, "completed_at": null },
-        "dev":    { "status": "pending | completed", "started_at": null, "completed_at": null },
-        "review": { "status": "pending | completed", "started_at": null, "completed_at": null }
-      },
-      "commit_sha": null,
-      "retry_count": 0,
-      "max_retries": 3,
-      "notes": ""
-    }
-  ],
-  "release": {
-    "status": "pending | in_progress | completed | failed",
-    "started_at": null,
-    "completed_at": null,
-    "artifact": "artifacts/release-notes.md",
-    "pushed": false,
-    "notes": ""
-  },
-  "decisions": [
-    { "ts": "ISO", "point": "requirements | architecture | slicing | release", "summary": "用户拍板的结论" }
-  ],
-  "config": {
-    "autonomous": false,
-    "cron_job_id": null,
-    "deploy_enabled": false
-  }
-}
-```
-
-设计要点：
-
-- 顶层 `status` 只有 4 个值，恢复时一眼判断项目状态。
-- `current_stage` + `current_slice_index` 取代旧版 `current_phase`，恢复时一眼定位在哪层、哪个切片。
-- `slices[]` 是动态数组，slicing 阶段产出后才填；每个切片内嵌 `tdd.test/dev/review` 三步状态，小循环进度可追踪、可断点续跑。
-- `commit_sha` 让每个切片可独立回滚。
-- `phases.<name>.retry_count` / `slices[i].retry_count` 是防死循环的关键。
-- `artifact` 用相对项目根的路径，便于整目录迁移。
-- `decisions` 记录每个确认点结论，恢复时让用户回忆上次决策。
-- `config.autonomous` + `cron_job_id` 支撑无人值守模式的可取消。
-- **读到 `schema_version: "1"` 的旧项目**：属过时格式，向用户提示「旧版 state，建议新建或人工核对」，不要静默按 v2 误读。
-
-**写入要原子**：用临时文件 + `mv`，避免半写损坏：
-
-```bash
-cat > "$PROJ_ROOT/.project-orchestrator/state.json.tmp" <<'JSON'
-{ ... 完整内容 ... }
-JSON
-mv "$PROJ_ROOT/.project-orchestrator/state.json.tmp" "$PROJ_ROOT/.project-orchestrator/state.json"
-```
-
 ## 恢复流程
 
 用户说"继续 / 接着 / 恢复上次项目"时：
 
-1. **定位项目根**（见第 4 节）。
-2. `cat "$PROJ_ROOT/.project-orchestrator/state.json"`。文件不存在 → 当作新项目，走第 5 节。`schema_version` 非 `"2"` → 提示旧版，按上节规则处理。
+1. **定位项目根**（见「工作目录与持久化」）。
+2. `cat "$PROJ_ROOT/.project-orchestrator/state.json"`。文件不存在 → 当作新项目，走「新建流程」。`schema_version` 非 `"2"` → 提示旧版，按 `references/state-schema.md` 末尾的旧版规则处理。
 3. 读取后向用户**复述**，不要默默继续：
    - 项目目标、技术栈
    - 当前 `status` 与 `current_stage`（以及 `current_slice_index`）
@@ -300,7 +199,7 @@ mv "$PROJ_ROOT/.project-orchestrator/state.json.tmp" "$PROJ_ROOT/.project-orches
    - 下一步打算做什么
 4. 问用户：**继续当前阶段/切片 / 重做当前阶段/切片 / 放弃**，默认"继续"。
 5. 把 `TaskList` 与 `state.json` 对齐：补齐缺失的 `TaskCreate`、勾掉已完成的。
-6. 按 `current_stage` 续跑，走第 6 节对应层骨架：
+6. 按 `current_stage` 续跑，走「阶段流水线」对应层骨架：
    - `planning` → 规划层当前未完成子阶段。
    - `execution` → `current_slice_index` 指向的切片；切片内看 `tdd.test/dev/review` 哪步未完，从该步续跑。
    - `release` → 收尾层续跑。
@@ -318,25 +217,7 @@ mv "$PROJ_ROOT/.project-orchestrator/state.json.tmp" "$PROJ_ROOT/.project-orches
 
 ## 自主模式（cron 无人值守）
 
-用户说"自动跑完 / 无人值守 / 不用管它"时：
-
-1. `state.json.config.autonomous = true`。
-2. `CronCreate` 注册周期任务：
-
-```
-CronCreate:
-  cron: "*/15 * * * *"          # 每 15 分钟唤醒一次
-  recurring: true
-  durable: false                # session-only，关会话即停，避免后台跑飞
-  prompt: "继续推进 project-orchestrator：读 .project-orchestrator/state.json，
-          按 current_stage 与 current_slice_index 执行下一里程碑（规划层下一阶段 /
-          当前切片内 TDD 下一步 / 收尾发布），更新状态。遇到确认点（需求/架构/切片
-          清单定稿、push、部署）就暂停并向用户汇报，不要自动越过。"
-```
-
-3. **告知用户**：cron 任务仅在 REPL 空闲时触发；recurring 任务 **7 天后自动过期**。
-4. 把返回的 job id 存进 `state.json.config.cron_job_id`。
-5. 项目完成（`status=completed`）或用户喊停时，`CronDelete` 清掉，`config.autonomous=false`。
+用户说"自动跑完 / 无人值守 / 不用管它"时，按 `templates/autonomous-cron.md` 的步骤与 CronCreate 模板注册周期任务。要点：`durable=false`（session-only，关会话即停）、recurring 任务 7 天后自动过期、job id 存进 `config.cron_job_id`、项目完成或用户喊停时 `CronDelete` 清理。
 
 ## 时间戳与确定性
 
@@ -355,12 +236,6 @@ printf '{"ts":"%s","stage":"%s","slice":"%s","event":"%s"}\n' \
   >> "$PROJ_ROOT/.project-orchestrator/events.log"
 ```
 
-## 注意事项
+## 上下游产物环环相扣
 
-- **状态只写目标项目根**，绝不写进 OpenSkills 插件目录。
-- **ecc 缺失不是错误**，静默走兜底即可，不要报错卡住。
-- 写 `state.json` 一律用临时文件 + `mv`，防半写损坏。
-- **切片是执行层单位，TDD 测试先行**：规划层 slicing 必须给出每切片可验证的 acceptance，执行层才能先写测试再实现；acceptance 模糊会让 TDD 无从下笔。
-- 部署 / 发包是**可选项**，不强求；"发布"默认 = 各切片 commit + 收尾层一次 `git push` 到 GitHub，契合本仓库"发布即推送"的理念。
-- 上下游环环相扣：架构阶段读 `requirements.md`，slicing 读 `architecture.md`，执行层切片读 `slices.md` + `architecture.md`，不要凭空发挥。
-- `TaskCreate/TaskUpdate/TaskList`（可选 todo 跟踪）与 `CronCreate/CronDelete/CronList`（无人值守）是扩展工具：本仓库目标环境可用，但**它们不是进度真相**——`state.json` 才是 source of truth。若当前环境缺这些工具，编排器照常靠 `state.json` 跟踪与手动续跑运行，cron 模式自动跳过。
+架构阶段读 `requirements.md`，slicing 读 `architecture.md`，执行层切片读 `slices.md` + `architecture.md`，不要凭空发挥。部署/发包是**可选项**；"发布"默认 = 各切片 commit + 收尾层一次 `git push` 到 GitHub，契合本仓库"发布即推送"的理念。
