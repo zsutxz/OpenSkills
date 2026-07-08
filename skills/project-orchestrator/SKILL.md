@@ -217,7 +217,7 @@ e. release.status=completed，顶层 status=completed，停止
 
 ## 自主模式（cron 无人值守）
 
-用户说"自动跑完 / 无人值守 / 不用管它"时，按 `templates/autonomous-cron.md` 的步骤与 CronCreate 模板注册周期任务。要点：`durable=false`（session-only，关会话即停）、recurring 任务 7 天后自动过期、job id 存进 `config.cron_job_id`、项目完成或用户喊停时 `CronDelete` 清理。
+用户说"自动跑完 / 无人值守 / 不用管它"时，按 `templates/autonomous-cron.md` 的步骤与 CronCreate 模板注册周期任务。要点：`durable=true`（持久化跨会话，会话断了下个周期由新会话读 state.json 自动接力）、recurring 任务 7 天后自动过期、job id 存进 `config.cron_job_id`、项目完成或用户喊停时 `CronDelete` 清理（durable 不随会话消失，必须手动清，否则空跑到过期）。
 
 ## 时间戳与确定性
 
