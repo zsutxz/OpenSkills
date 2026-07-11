@@ -31,3 +31,6 @@ docs/
 # Claude Code 本地运行态（不进仓库）
 .claude/settings.local.json
 .claude/worktrees/
+
+# project-orchestrator 交付流水线运行态（状态/日志/产物，针对被开发项目的临时规划，不进仓库）
+.project-orchestrator/
