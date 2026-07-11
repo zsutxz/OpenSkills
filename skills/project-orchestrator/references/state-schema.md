@@ -45,7 +45,15 @@
       "tdd": {
         "test":   { "status": "pending | completed", "started_at": null, "completed_at": null },
         "dev":    { "status": "pending | completed", "started_at": null, "completed_at": null },
-        "review": { "status": "pending | completed", "started_at": null, "completed_at": null }
+        "review": {
+          "status": "pending | in_progress | completed | failed",
+          "started_at": null,
+          "completed_at": null,
+          "verdict": "pass | pass-with-deferred | fail",  /* 完成前为 null */
+          "findings": {"critical": 0, "high": 0, "medium": 0, "low": 0},
+          "deferred": ["缓修的低级别问题一句话…"],
+          "artifact": "artifacts/review-report.md#slice-N"
+        }
       },
       "commit_sha": null,
       "retry_count": 0,
@@ -77,6 +85,7 @@
 - 顶层 `status` 只有 4 个值，恢复时一眼判断项目状态。
 - `current_stage` + `current_slice_index` 取代旧版 `current_phase`，恢复时一眼定位在哪层、哪个切片。
 - `slices[]` 是动态数组，slicing 阶段产出后才填；每个切片内嵌 `tdd.test/dev/review` 三步状态，小循环进度可追踪、可断点续跑。
+- `tdd.review` 带 `verdict`/`findings`/`deferred`/`artifact` 而非单纯布尔态：让恢复时/用户能从 state.json 一眼确认 review 真做过、审出什么（对症"空标 completed 跳过审查"）；`findings` 用 🔴/🟠/🟡/⚪ 四档计数，与 SKILL.md §6.2 门禁判定同词汇。
 - `commit_sha` 让每个切片可独立回滚。
 - `planning.<name>.retry_count` / `slices[i].retry_count` 是防死循环的关键。
 - `artifact` 用相对项目根的路径，便于整目录迁移。

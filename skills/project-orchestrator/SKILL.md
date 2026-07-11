@@ -11,7 +11,7 @@ description: |
   不用于单点任务（修 bug、加按钮、重构函数、改文档）——那是直接干活，不是发起完整流水线。
 license: MIT
 allowed-tools: [Bash, Read, Write, Edit, Glob, Grep, WebSearch, Task, CronCreate, CronDelete, CronList, TaskCreate, TaskUpdate, TaskList, TaskGet]
-version: 0.2.0
+version: 0.3.0
 metadata:
   category: orchestration
   tags: [project, pipeline, autonomous, delivery, subagent, slicing, tdd]
@@ -57,7 +57,7 @@ metadata:
     ├── architecture.md
     ├── slices.md         # 切片拆解清单（规划层产物，执行层输入）
     ├── dev-log.md        # 跨切片开发记录，按切片分段追加
-    ├── review-report.md  # 跨切片审查记录，按切片分段追加
+    ├── review-report.md  # 每切片一段审查结论（格式见 §6.2 步骤 d）
     └── release-notes.md
 ```
 
@@ -131,12 +131,32 @@ b. 测试先行（红）：调度测试角色，输入=slices.md 该切片 goal+
 c. 开发到绿：调度开发角色（按改动规模派单，见下），实现到该切片测试全绿；
    build 失败调对应语言 ecc:*-build-resolver（缺失则 project-role-worker 开发角色）。
    slices[i].tdd.dev=completed
-d. 切片小审查：ecc:code-reviewer + ecc:security-reviewer 两条 Task **并行**，**仅审查本切片 diff**；
-   发现 🔴 高危 → 回步骤 b/c 重跑该切片测试（不重开全量审查），retry_count++，上限 3 暂停求助。
-   slices[i].tdd.review=completed
-e. git commit（不 push）：commit message 引用 slice id，把 sha 记进 slices[i].commit_sha
-f. slices[i].status=completed（写 completed_at），追加 events.log，current_slice_index++
+d. 【门禁·切片审查】commit 前必做，不得跳过——**无论代码由主 agent 还是子代理所写**：
+   d1. 并行调度 ecc:code-reviewer + ecc:security-reviewer，**仅审本切片 diff**
+       （`git diff <上一切片 commit 或空树>..HEAD`；首切片用空树 `$(git hash-object -t tree /dev/null)`）；
+       ecc 缺失则 project-role-worker 审查角色（产出同一套严重度词汇，见下）。
+   d2. 把结论追加到 `artifacts/review-report.md`（按切片分段，格式见代码块下方）。
+   d3. 门禁判定：
+       - 🔴 CRITICAL / 🟠 HIGH → 回步骤 b/c 修复后**仅重审该问题**（不重开全量），retry_count++，上限 3 暂停求助，**不得 commit**；
+       - 🟡 MEDIUM / ⚪ LOW / NIT → 可缓修，但必须在 review-report.md 记一句缓修理由，并回写 slices[i].notes；
+       - 无 🔴/🟠 → review 通过，进入 e。
+   d4. slices[i].tdd.review 写 `{status:completed, verdict, findings, deferred, artifact}`
+       （schema 见 `references/state-schema.md`）。只有跑过 d 并通过，才算 review 真完成——不得空标 completed。
+e. git commit（不 push）：**前置条件 = d 通过**（无 🔴/🟠）。commit message 引用 slice id，把 sha 记进 slices[i].commit_sha。
+f. slices[i].status=completed（写 completed_at）：**前置条件 = tdd.test/dev/review 均 completed**；
+   追加 events.log，current_slice_index++。
 ```
+
+> `review-report.md` 每切片一段，字段顺序固定（便于恢复时 grep）：
+>
+> ```
+> ## slice-N · <title>  (<commit sha 或"未提交">)
+> - 审查者：ecc:code-reviewer / ecc:security-reviewer / project-role-worker
+> - verdict：pass | pass-with-deferred | fail
+> - findings：🔴<n> 🟠<n> 🟡<n> ⚪<n>
+> - 必修（已处理）：[<一句话问题 + 如何修>, ...]
+> - 缓修（低级别）：[<一句话问题 + 理由>, ...]
+> ```
 
 **执行层调度表**：
 
@@ -144,12 +164,14 @@ f. slices[i].status=completed（写 completed_at），追加 events.log，curren
 |-----------|-----------|----------------------------------|
 | 测试先行（红） | `ecc:tdd-guide` / 各语言 `ecc:*-test` | 测试 |
 | 开发实现（绿） | 按改动规模派单（见下） | 开发 |
-| 切片小审查 | `ecc:code-reviewer` + `ecc:security-reviewer`（并行，仅本切片 diff） | 审查 |
+| 切片审查（门禁 d） | `ecc:code-reviewer` + `ecc:security-reviewer`（并行，仅本切片 diff） | 审查 |
 
 **开发派单规则**（步骤 c 内部）：主 agent 不独自扛大改动，按规模分工——
 
 - 单文件 / 小改动（几十行内）：主 agent 直接写。
 - 多文件 / 新建模块 / 大功能：派给 `project-role-worker` 开发角色，主 agent 只做协调与 state 更新，避免上下文爆炸。
+
+> **无论开发派给子代理还是主 agent 自写，步骤 d 审查门禁一律强制**——这是 a-stock-picker 的 slice-1/2 曾被绕过的口子：代码可以主 agent 直接写，但 commit 前的 review 不可省。
 
 ### 6.3 收尾层（一次性）
 
