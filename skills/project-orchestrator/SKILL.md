@@ -28,7 +28,7 @@ metadata:
 3. **全部产出用中文**（代码注释、文档、报告、提交信息）。
 4. **失败有界**：每个阶段、每个切片 `retry_count` 上限 3，超限就暂停求助，不死磕、不空转烧预算。
 
-其余贯穿性约束见对应章节：时间戳用 bash `date`（「时间戳与确定性」）、子代理先探测 ecc 再调度（「调度规则」）、切片是执行单位且 TDD 测试先行（「阶段流水线/6.1」）、状态只写目标项目根不污染插件目录（「工作目录与持久化」）。
+其余贯穿性约束见对应章节：时间戳用 bash `date`（「时间戳与确定性」）、子代理先探测 ecc 再调度（「调度规则」）、切片是执行单位且 TDD 测试先行（「阶段流水线/6.1」）、状态只写目标项目根不污染插件目录（「工作目录与持久化」）、每阶段/切片开头先测上下文预算代理指标（「上下文预算」）。
 
 ## 意图路由
 
@@ -91,13 +91,33 @@ metadata:
 ### 通用骨架
 
 ```
-0. [Token 检查点] 进入新阶段/新切片前，先向用户展示一行状态：
-      ⚙️ 即将进入「<阶段/切片名>」（规划层 X/3 或 切片 Y/N）。上下文是否还充裕？
-      [继续] / [先 /compact 再继续] / [保存进度，稍后重启]
-   - 用户选"继续" → 直接走步骤 a。
-   - 用户选"/compact" → 提示执行 /compact，等用户确认压缩完成后再走步骤 a。
-   - 用户选"重启" → 提示：进度已保存至 state.json，重启后说"继续上次项目"即可恢复。然后停止。
-   - 无人值守模式（config.autonomous=true）→ 跳过本检查点，不打断自动推进。
+0. [上下文预算检查] 进入新阶段/新切片前，先测代理指标，按阈值自动决策
+     （指标与阈值定义见「上下文预算」，测法与校准见 references/context-budget.md）。
+   指标（读 state.json 算，辅以 `wc -l < "$PROJ_ROOT/.project-orchestrator/events.log"`）：
+     - 规划层：planning 三阶段里 status=completed 的 / 3
+     - 执行层：slices[] 里 status=completed 的 / slices.length
+     - 收尾层：短阶段，免检
+   辅助信号：events.log 行数（防"进度没到但事件已爆"，如某切片反复重试）。
+   阈值来自 config.context_budget（缺省 软 0.50 / 硬 0.75，行数软 120 / 硬 200）：
+     - 未达软档（且行数也未超标）→ 不打扰，直接走步骤 a。
+     - 达软档，或辅助行数达标 → 先 tmp+mv 落盘 state.json、追加 events.log
+       （event=上下文预算触发, level=soft），再向用户展示一行：
+         ⚙️ 进度约 <P%>（切片 Y/N 或 规划 X/3，events.log <L> 行）——代理指标，提示上下文可能偏紧。建议先 /compact 再继续，进度已存盘。
+         [先 /compact 再继续] / [不管，继续] / [保存进度，稍后重启]
+       用户压缩后说"继续" → 走步骤 a；说"重启" → 停止（恢复见「恢复流程」）。
+       注：同一会话内若已对当前 <P%> 提示过软档且用户已处理（/compact 或选"不管"），
+           不重复打扰，直接走步骤 a——/compact 不改进度比，靠这条防反复触发。
+     - 达硬档 → 先落盘 + 记 events.log（level=hard），再提示：
+         ⚠️ 进度约 <P%>（代理指标），上下文已偏紧，建议 /clear 后新会话说"继续上次项目"恢复。
+            state.json 是唯一真相源，/clear 不丢进度。
+       然后停止本轮，等用户 /clear 后在新会话由「恢复流程」续跑。
+   自主模式（config.autonomous=true）——无人值守无法自 /compact 或 /clear，按档降级（不再跳过）：
+     - 未达软档 → 正常推进，走步骤 a。
+     - 达软档 → 本轮 cron 不开新切片/新阶段，只落盘 + 记 events.log
+       （level=soft, autonomous=true, note="本轮跳过新单元"）+ 结束本轮等下次 cron。
+     - 达硬档 → 落盘 + 记 events.log（level=hard, autonomous=true, note="需人工 /clear"）
+       + 本轮停止 + 在下次能汇报的时机告知需人工 /clear。
+     诚实声明：无人值守下上下文压力是固有风险，机制只能"不再加重 + 告警"，做不到自动清缓存续跑。
 a. 读 state.json，把当前阶段/切片标 in_progress（写 started_at 时间戳）
 b. 按调度表调度子代理（优先专家 → 兜底），把任务、输入产物、输出产物路径交代清楚
 c. 把产物写入 artifacts/<对应>.md（切片开发/审查记录追加进 dev-log.md / review-report.md）
@@ -227,6 +247,8 @@ e. release.status=completed，顶层 status=completed，停止
    - `release` → 收尾层续跑。
 
 > 关键：恢复后绝不从需求阶段重头来——那是失忆。靠 `state.json` 接着断点走，精确到切片内 TDD 的某一步。
+>
+> 跨会话保留：`retry_count`、缓修 `notes`、`decisions` 都随 state.json 持久化。即便上次是因上下文预算硬档触发 `/clear` 而停（events.log 末条 `上下文预算触发` level=hard 可证），新会话恢复时这些计数**不清零**——/clear 只清对话，不洗失败计数。
 
 ## 停止条件
 
@@ -240,6 +262,16 @@ e. release.status=completed，顶层 status=completed，停止
 ## 自主模式（cron 无人值守）
 
 用户说"自动跑完 / 无人值守 / 不用管它"时，按 `templates/autonomous-cron.md` 的步骤与 CronCreate 模板注册周期任务。要点：`durable=false`（session-only，关会话即停）、recurring 任务 7 天后自动过期、job id 存进 `config.cron_job_id`、项目完成或用户喊停时 `CronDelete` 清理。
+
+## 上下文预算
+
+主 agent 读不到自己的上下文用量百分比，也不能自己执行 /compact 或 /clear。本机制是退化形态：**自动测代理指标 → 自动 tmp+mv 落盘 state.json → 提示用户按 /compact 或 /clear → 用户说"继续"后从断点续跑**。计算与校准细节见 `references/context-budget.md`。
+
+- **代理指标（主信号）= 切片进度比**：规划层 = planning 三阶段已完成数 / 3；执行层 = slices[] 里 status=completed 的 / slices.length；收尾层免检。它确定可数、与上下文累积强相关，且"50%"直接对应用户直觉。
+- **辅助信号 = events.log 行数**：防"进度没到但事件已爆"（如某切片反复重试）。行数也超阈值时，即使进度比未到，也按已触发的低档处理。
+- **两档阈值**（config.context_budget 可覆盖，缺省软 0.50 / 硬 0.75）：软档走 /compact（压缩保留摘要），硬档走 /clear（彻底清空，靠 state.json 恢复——更契合本 skill"唯一真相源"理念）。
+- **自主模式降级**：autonomous=true 时无法自 /clear，达软档本轮不开新单元、落盘等下次 cron；达硬档落盘告警、停本轮、待人工 /clear。诚实承认无人值守下上下文压力是固有风险，机制只能"不再加重 + 告警"。
+- 触发后一律先 tmp+mv 落盘再提示，绝不丢进度；具体测法、阈值校准、与 events.log 集成见 `references/context-budget.md`。
 
 ## 时间戳与确定性
 
