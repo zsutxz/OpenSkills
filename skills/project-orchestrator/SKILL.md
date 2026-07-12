@@ -1,7 +1,8 @@
 ---
 name: project-orchestrator
 description: |
-  端到端项目交付编排器。当用户说"从零做一个项目""启动一个项目并完整交付"
+  端到端项目交付编排器。按项目复杂度自动选 Quick/Standard/Enterprise 三轨道
+  （小工具跳过架构层直奔 TDD，大系统加专项文档）。当用户说"从零做一个项目""启动一个项目并完整交付"
   "端到端完成这个项目""帮我把这个想法做成可发布的产品""接着上次的项目继续/
   恢复项目进度""项目现在到哪一步了""自动跑完，不用管它"，或要求把一个项目
   从需求一路推进到发布时，自动激活。按「规划层（需求/架构/切片拆解）→ 执行层
@@ -11,7 +12,7 @@ description: |
   不用于单点任务（修 bug、加按钮、重构函数、改文档）——那是直接干活，不是发起完整流水线。
 license: MIT
 allowed-tools: [Bash, Read, Write, Edit, Glob, Grep, WebSearch, Task, CronCreate, CronDelete, CronList, TaskCreate, TaskUpdate, TaskList, TaskGet]
-version: 0.3.0
+version: 0.4.0
 metadata:
   category: orchestration
   tags: [project, pipeline, autonomous, delivery, subagent, slicing, tdd]
@@ -68,6 +69,20 @@ metadata:
 1. 当前工作目录下存在 `.project-orchestrator/state.json` → 即该项目，直接用。
 2. 否则问用户：新建项目放哪个路径？要恢复哪个已有项目（给路径）？不要脑补路径。
 
+## 轨道（三轨道自适应）
+
+不是所有项目都该走完整三层流水线。按复杂度分三轨，新建时自动推荐、用户可改（记入 `state.json.project.track`）：
+
+| 轨道 | 触发信号 | 流程差异 |
+|------|----------|----------|
+| **Quick** | 单功能 / 脚本 / 工具 / 小 MVP，预期 ≤3 切片，单技术栈 | 规划层合并：需求(SPEC) + 切片，**跳过独立 architecture 子阶段**；确认点省②（架构定稿），由 5 减为 4 |
+| **Standard**（默认） | 多功能应用 / 常规服务 | 现状三层流水线，不变 |
+| **Enterprise** | 多服务 / 合规 / 团队协作 | Standard + 架构阶段附带专项文档（安全 / DevOps 清单） |
+
+**判定时机**：新建流程第 1 步确认项目要素时，根据一句话目标 + 技术栈 + 预期规模推荐轨道，向用户确认后写入 `track`。恢复已有项目时沿用其 `track`。
+
+> Quick 轨**只省架构层**——执行层 TDD + 切片审查门禁（§6.2 步骤 d）**一律不省**，那是质量底线。Enterprise 轨的专项文档由架构师角色在 architecture 阶段附带产出（不新增独立阶段）。
+
 ## 新建流程
 
 1. **确认项目要素**（缺哪项问哪项，不臆测）：
@@ -75,6 +90,7 @@ metadata:
    - 技术栈倾向（用户没想法则由架构阶段提议）
    - 目标仓库地址（可暂无，发布阶段再定）
    - 项目根路径（默认当前目录，或用户指定）
+   - **交付轨道**：据目标+规模推荐 Quick/Standard/Enterprise（见上「轨道」），用户确认后写入 `state.json.project.track`
 2. **建状态目录**（bash 一次完成）：
    ```bash
    PROJ_ROOT="<项目根绝对路径>"
@@ -130,15 +146,19 @@ f. 若是"确认点" → 暂停汇报等用户确认；否则不停顿，推进�
 
 依次跑需求分析 → 架构设计 → 切片拆解，每阶段套通用骨架。切片拆解完成后 `current_stage` 从 `planning` 切到 `execution`，`current_slice_index=0`。
 
+> **Quick 轨（track=quick）跳过 architecture 子阶段**：需求(SPEC)定稿后直接进 slicing，架构决策并入切片描述，确认点②（架构定稿）随之省略——Quick 轨只有 4 个确认点。**Enterprise 轨（track=enterprise）**在 architecture 阶段额外让架构师产出安全/DevOps 专项清单（不新增独立阶段）。
+
 **规划层调度表**：
 
 | # | 阶段 | 优先子代理 | 兜底（project-role-worker 角色） | 产物 | 完成判据 |
 |---|------|-----------|----------------------------------|------|----------|
-| 1 | 需求分析 | `ecc:plan-prd` / `ecc:prp-prd` / `ecc:planner` | 产品经理 | `requirements.md` | 含目标/用户故事/范围/非范围/验收标准；**用户确认（确认点①）** |
+| 1 | 需求分析 | `ecc:plan-prd` / `ecc:prp-prd` / `ecc:planner` | 产品经理 | `requirements.md` | 含 **SPEC 5 段**（Why/Capabilities/Constraints/Non-goals/Success signal，Success signal 每条可测）；**用户确认（确认点①）** |
 | 2 | 架构设计 | `ecc:architect` | 架构师 | `architecture.md` | 含技术栈/目录结构/模块职责/数据流/风险；**用户确认（确认点②）** |
-| 3 | 切片拆解 | `ecc:planner` / `ecc:plan` / `ecc:prp-plan` | 架构师 | `slices.md` | 把项目拆成 N 个可独立交付的切片，**每切片有 title/goal/可验证 acceptance**；**用户确认（确认点③）** |
+| 3 | 切片拆解 | `ecc:planner` / `ecc:plan` / `ecc:prp-plan` | 架构师 | `slices.md` | 拆成 N 个可独立交付切片，**每切片有 title/goal/可验证 acceptance + `covers`（覆盖哪些架构组件）**，并通过**架构-切片一致性体检**；**用户确认（确认点③）** |
 
-> slicing 阶段的产物同时填进 `state.json.slices[]`：每个切片落 `id`/`title`/`goal`/`acceptance`/`status=pending`。**acceptance 必须具体可测**，否则执行层 TDD 测试先行无从下笔——这是 slicing 阶段的硬性完成判据。
+> slicing 阶段的产物同时填进 `state.json.slices[]`：每个切片落 `id`/`title`/`goal`/`acceptance`/`covers`/`status=pending`。**acceptance 必须具体可测、`covers` 必须映射到 architecture.md 的组件**，否则执行层 TDD 测试先行无从下笔——这是 slicing 阶段的硬性完成判据。
+>
+> **架构-切片一致性体检**（slicing 定稿、进确认点③前的硬性校验，借鉴 BMAD implementation-readiness）：①正向——每切片 `covers` 标注它实现哪些架构组件/决策；②反向——`architecture.md` 每个核心组件/模块至少被一个切片覆盖（无孤儿组件、无遗漏切片）。不通过则 slicing 重做（补切片或修架构），不进确认点③。Quick 轨无独立架构层时，`covers` 映射到 requirements 的 Capabilities。
 
 ### 6.2 执行层（逐切片 TDD 小循环）
 
@@ -150,7 +170,9 @@ b. 测试先行（红）：调度测试角色，输入=slices.md 该切片 goal+
    产出该切片测试用例，确认它们当前跑红（功能尚未实现）。slices[i].tdd.test=completed
 c. 开发到绿：调度开发角色（按改动规模派单，见下），实现到该切片测试全绿；
    build 失败调对应语言 ecc:*-build-resolver（缺失则 project-role-worker 开发角色）。
-   slices[i].tdd.dev=completed
+   **升级护栏**：开发中若发现「改动远超切片描述 / 触及 architecture 未覆盖的新组件 / 引入新外部依赖」，
+   不要闷头 retry——暂停、记 events.log（event=升级护栏触发）、建议回规划层补切片或修架构
+   （与 retry≤3 互补：retry 是同方向再试，升级护栏是方向错了回头）。无越界则 slices[i].tdd.dev=completed。
 d. 【门禁·切片审查】commit 前必做，不得跳过——**无论代码由主 agent 还是子代理所写**：
    d1. 并行调度 ecc:code-reviewer + ecc:security-reviewer，**仅审本切片 diff**
        （`git diff <上一切片 commit 或空树>..HEAD`；首切片用空树 `$(git hash-object -t tree /dev/null)`）；
@@ -221,7 +243,7 @@ e. release.status=completed，顶层 status=completed，停止
 | # | 节点 | 停下来做什么 |
 |---|------|-------------|
 | ① | 需求定稿 | 展示 `requirements.md` 要点，等用户拍板范围 |
-| ② | 架构定稿 | 展示 `architecture.md` 要点，等用户拍板技术方案 |
+| ② | 架构定稿 | 展示 `architecture.md` 要点，等用户拍板技术方案（**Quick 轨无此点**：跳过 architecture 层） |
 | ③ | 切片清单定稿 | 展示 `slices.md`（切片范围/顺序/每切片 acceptance），等用户拍板再进入执行层 |
 | ④ | 发布 push 前 | 展示将推送的提交清单，等用户确认推送 |
 | ⑤ | 部署前（可选） | 仅当用户要求部署/发包时才出现 |

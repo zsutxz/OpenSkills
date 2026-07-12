@@ -14,7 +14,8 @@
     "goal": "一句话目标",
     "repo_url": null,
     "tech_stack": [],
-    "root_path": "项目根绝对路径"
+    "root_path": "项目根绝对路径",
+    "track": "quick | standard | enterprise"   /* 交付轨道,缺省 standard;Quick 跳过架构层,见 SKILL.md「轨道判定」 */
   },
   "status": "running | completed | abandoned | paused",
   "current_stage": "planning | execution | release",
@@ -41,6 +42,7 @@
       "title": "切片标题",
       "goal": "这个切片交付什么",
       "acceptance": ["可验证的验收条件1", "..."],
+      "covers": ["<架构组件/决策标识>", "..."],  /* 该切片实现哪些架构组件,供「架构-切片一致性体检」;可选,老项目无此键不报错 */
       "status": "pending | in_progress | completed | failed",
       "tdd": {
         "test":   { "status": "pending | completed", "started_at": null, "completed_at": null },
@@ -96,6 +98,7 @@
 - `commit_sha` 让每个切片可独立回滚。
 - `planning.<name>.retry_count` / `slices[i].retry_count` 是防死循环的关键。
 - `artifact` 用相对项目根的路径，便于整目录迁移。
+- `project.track` 决定走哪条交付轨道（quick/standard/enterprise，缺省 standard；老 v2 项目缺省合并不报错、**不 bump schema_version**，沿用 context_budget 先例）。`slices[].covers`（可选）记录每切片覆盖的架构组件，支撑 slicing 阶段「架构-切片一致性体检」——老项目无此键不报错。
 - `decisions` 记录每个确认点结论，恢复时让用户回忆上次决策。
 - `config.autonomous` + `cron_job_id` 支撑无人值守模式的可取消。
 - `config.context_budget` 控制上下文预算自动管理（详见 SKILL.md「上下文预算」与 `references/context-budget.md`）：纯新增可选键，**老 v2 项目缺省合并不报错、不当作旧版**——
