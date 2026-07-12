@@ -53,7 +53,7 @@ def ema(values, n):
     return out
 
 
-def _ema_over_suffix(series, n):
+def _ema_skip_leading_none(series, n):
     """对 series 求EMA，但跳过前导 None（如 DIF 序列前段未定义）。
 
     前导 None 段原样保留，对其后的非 None 连续段求 EMA 并对齐回填。
@@ -81,7 +81,7 @@ def macd(closes, fast=12, slow=26, signal=9):
         (f - s) if (f is not None and s is not None) else None
         for f, s in zip(ema_fast, ema_slow)
     ]
-    dea = _ema_over_suffix(dif, signal)
+    dea = _ema_skip_leading_none(dif, signal)
     hist = [
         2 * (d - e) if (d is not None and e is not None) else None
         for d, e in zip(dif, dea)
@@ -93,9 +93,9 @@ def vol_ratio(volumes, short=5, long=20):
     """量比 = 近 short 日均量 / 近 long 日均量（取最新值）。
 
     用于判断温和放量：比值落在 1.1~2.5x 视为温和放量。
-    数据不足（长度 < long）或分母为 0 时返回 None。
+    数据不足（长度 < long）、short>long（非法调用）、分母为 0 时返回 None。
     """
-    if long <= 0 or short <= 0 or len(volumes) < long:
+    if long <= 0 or short <= 0 or short > long or len(volumes) < long:
         return None
     short_avg = sum(volumes[-short:]) / short
     long_avg = sum(volumes[-long:]) / long

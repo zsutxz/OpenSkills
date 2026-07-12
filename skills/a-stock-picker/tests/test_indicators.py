@@ -142,6 +142,10 @@ class TestVolRatio(unittest.TestCase):
     def test_flat_equals_one(self):
         self.assertTrue(_approx(vol_ratio([5.0] * 20), 1.0))
 
+    def test_swapped_params_returns_none(self):
+        # short>long 为非法调用，返回 None 而非静默错误值（slice-2 遗留 M1）
+        self.assertIsNone(vol_ratio([1.0] * 20, short=20, long=5))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
