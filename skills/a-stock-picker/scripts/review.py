@@ -9,7 +9,7 @@
 - 入选价 = 推荐记录的 price；退出价 = K 线在推荐日索引 +n 处的收盘。
 - 推荐日不在 K 线范围、或后续 K 线不足某档 → 该档收益为 None，不计入该档统计。
 
-CLI：python scripts/review.py   （读 data/recommendations.jsonl，写 reports/review-YYYYMMDD.md）
+CLI：python scripts/review.py   （读 docs/a-stock-picker/data/recommendations.jsonl，写 docs/a-stock-picker/reports/review-YYYYMMDD.md）
 """
 import os
 import re
@@ -143,7 +143,7 @@ def format_report(summary, date=None):
 
 
 def save_report(text, date=None):
-    """写报告到 reports/review-YYYYMMDD.md，返回路径。"""
+    """写报告到 docs/a-stock-picker/reports/review-YYYYMMDD.md，返回路径。"""
     os.makedirs(REPORTS_DIR, exist_ok=True)
     date = date or today_iso()
     # 防御纵深：date 进入文件名，强制 ISO 格式，杜绝路径穿越（../ 等）

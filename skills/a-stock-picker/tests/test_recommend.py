@@ -43,7 +43,7 @@ def _mock_fetch_klines():
 
 class TestRun(unittest.TestCase):
     def setUp(self):
-        # 重定向落盘路径到临时文件，避免污染真实 data/recommendations.jsonl
+        # 重定向落盘路径到临时文件，避免污染真实 docs/a-stock-picker/data/recommendations.jsonl
         self.tmp = tempfile.NamedTemporaryFile(
             mode="w", suffix=".jsonl", delete=False, encoding="utf-8")
         self.tmp.close()

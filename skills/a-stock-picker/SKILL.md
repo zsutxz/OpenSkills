@@ -40,8 +40,8 @@ metadata:
 在本 skill 目录下直接跑：
 
 ```
-python scripts/recommend.py     # 当日选股：打印 Top3 + 风险声明，落盘 data/recommendations.jsonl
-python scripts/review.py        # 历史复盘：输出 reports/review-YYYYMMDD.md
+python scripts/recommend.py     # 当日选股：打印 Top3 + 风险声明，落盘 docs/a-stock-picker/data/recommendations.jsonl
+python scripts/review.py        # 历史复盘：输出 docs/a-stock-picker/reports/review-YYYYMMDD.md
 ```
 
 非交易日运行 `recommend.py` 会提示"今日非交易日"且不落盘。
@@ -52,8 +52,8 @@ python scripts/review.py        # 历史复盘：输出 reports/review-YYYYMMDD.
 
 ## 输出与持久化
 
-- `data/recommendations.jsonl`：推荐历史，每行一条，追加写入，同日重跑去重覆盖。
-- `reports/review-YYYYMMDD.md`：复盘报告，顶部含风险声明。
+- `docs/a-stock-picker/data/recommendations.jsonl`：推荐历史，每行一条，追加写入，同日重跑去重覆盖。
+- `docs/a-stock-picker/reports/review-YYYYMMDD.md`：复盘报告，顶部含风险声明。
 
 ## 数据与依赖
 

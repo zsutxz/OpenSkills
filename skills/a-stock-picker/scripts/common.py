@@ -14,8 +14,12 @@ RISK_NOTICE = (
 
 # skill 根目录：scripts/ 的上一级，即 skills/a-stock-picker/
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(SKILL_DIR, "data")
-REPORTS_DIR = os.path.join(SKILL_DIR, "reports")
+# 项目根目录（仓库/插件根）：skills/a-stock-picker/ 的上两级，仍按 __file__ 解析，与运行目录无关
+PROJECT_ROOT = os.path.dirname(os.path.dirname(SKILL_DIR))
+# 运行时产物根：遵循本仓库约定 docs/<skill名>/（docs/ 已在 .gitignore，本地产物不进仓库）
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "docs", "a-stock-picker")
+DATA_DIR = os.path.join(OUTPUT_DIR, "data")
+REPORTS_DIR = os.path.join(OUTPUT_DIR, "reports")
 RECOMMEND_FILE = os.path.join(DATA_DIR, "recommendations.jsonl")
 
 

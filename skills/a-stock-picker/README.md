@@ -10,7 +10,7 @@
 # 当日选股（仅交易日生效，输出 Top3 + 落盘）
 python scripts/recommend.py
 
-# 历史复盘（读 data/recommendations.jsonl，输出 reports/review-YYYYMMDD.md）
+# 历史复盘（读 docs/a-stock-picker/data/recommendations.jsonl，输出 docs/a-stock-picker/reports/review-YYYYMMDD.md）
 python scripts/review.py
 ```
 
@@ -26,8 +26,13 @@ scripts/
   recommend.py         选股主流程 CLI
   review.py            复盘主流程 CLI
 tests/                 单元测试（python tests/test_*.py）
-data/recommendations.jsonl   推荐历史（运行时生成，追加 + 同日去重）
-reports/                     复盘报告（运行时生成）
+```
+
+运行时产物不在本 skill 目录，统一写到仓库根 `docs/a-stock-picker/`（已在 `.gitignore`，不进仓库）：
+
+```
+docs/a-stock-picker/data/recommendations.jsonl   推荐历史（追加 + 同日去重）
+docs/a-stock-picker/reports/review-YYYYMMDD.md    复盘报告
 ```
 
 ## 定时任务配置（工作日 15:30 自动选股）
