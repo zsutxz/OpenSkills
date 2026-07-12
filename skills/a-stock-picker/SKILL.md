@@ -59,3 +59,4 @@ python scripts/review.py        # 历史复盘：输出 docs/a-stock-picker/repo
 
 - 数据源：新浪（全市场列表 + 快照）+ 腾讯（前复权日 K），免费公开。
 - 零第三方依赖，仅 Python 3.11 标准库。
+- 交易日历：`trading_calendar.HOLIDAYS` 仅含 2026 节假日，**每年底需补下一年表**（详见 README「交易日历维护」），否则跨年静默误判交易日。

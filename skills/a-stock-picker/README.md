@@ -58,6 +58,10 @@ docs/a-stock-picker/reports/review-YYYYMMDD.md    复盘报告
 
 会话内可用 `/loop` 或定时任务临时调度 `recommend.py`（会话内定时任务约 7 天自动过期、且仅在 REPL 空闲时触发，具体行为以 Claude Code 当前版本为准）；**长期稳定用建议上面的 OS 级方案**。
 
+## 交易日历维护（跨年必读）
+
+`trading_calendar.HOLIDAYS` 仅内置 **2026 年**节假日表（依据国务院放假安排）。**每年底必须补下一年表**，否则跨年后春节/国庆等休市日会被误判为交易日——脚本会照常拉数据，多半得到 0 入选，**不报错（静默退化）**。更新方式：在 `scripts/trading_calendar.py` 的 `HOLIDAYS_2026` 旁新增 `HOLIDAYS_2027` 等并并入 `HOLIDAYS` 集合。
+
 ## 策略与复盘口径
 
 - **选股条件**：剔除 ST/退市/亏损(PE≤0)/停牌/次新；MA 多头(close>MA5>MA10>MA20) + 温和放量(量比 1.1~2.5) + MACD 多头(DIF>DEA 且 DIF>0)。打分 = 趋势 50% + 量价 30% + 动能 20%。
@@ -70,6 +74,7 @@ python tests/test_indicators.py
 python tests/test_strategy.py
 python tests/test_recommend.py
 python tests/test_review.py
+python tests/test_contract.py
 python tests/test_market_data.py
 python tests/test_trading_calendar.py
 python tests/test_skill_docs.py
