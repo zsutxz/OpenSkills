@@ -43,17 +43,25 @@ def _mock_fetch_klines():
 
 class TestRun(unittest.TestCase):
     def setUp(self):
-        # 重定向落盘路径到临时文件，避免污染真实 docs/a-stock-picker/data/recommendations.jsonl
+        # 重定向落盘路径到临时文件，避免污染真实 docs/a-stock-picker/data/
         self.tmp = tempfile.NamedTemporaryFile(
             mode="w", suffix=".jsonl", delete=False, encoding="utf-8")
         self.tmp.close()
         self._orig = recommend.RECOMMEND_FILE
         recommend.RECOMMEND_FILE = self.tmp.name
+        # md 镜像同样重定向到临时文件
+        self.tmp_md = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".md", delete=False, encoding="utf-8")
+        self.tmp_md.close()
+        self._orig_md = recommend.RECOMMEND_MD_FILE
+        recommend.RECOMMEND_MD_FILE = self.tmp_md.name
 
     def tearDown(self):
         recommend.RECOMMEND_FILE = self._orig
-        if os.path.exists(self.tmp.name):
-            os.remove(self.tmp.name)
+        recommend.RECOMMEND_MD_FILE = self._orig_md
+        for p in (self.tmp.name, self.tmp_md.name):
+            if os.path.exists(p):
+                os.remove(p)
 
     def _lines(self):
         with open(self.tmp.name, encoding="utf-8") as f:
@@ -127,6 +135,32 @@ class TestRun(unittest.TestCase):
         self.assertFalse(r["written"])
         self.assertEqual(os.path.getsize(self.tmp.name), 0)
 
+    def test_writes_md_mirror_alongside_jsonl(self):
+        # 双写：落盘 jsonl 的同时，用同源全部记录整体重写 md 镜像
+        r = recommend.run(date="2026-07-10", fetch_list=lambda: _snapshot_fixture(),
+                          fetch_klines=_mock_fetch_klines())
+        self.assertTrue(r["written"])
+        with open(self.tmp_md.name, encoding="utf-8") as f:
+            md = f.read()
+        self.assertIn("选股推荐历史", md)        # 文档标题
+        self.assertIn("## 2026-07-10", md)       # 日期分节
+        self.assertIn("风险声明", md)            # 顶部强制风险声明
+        self.assertIn("科创先锋", md)            # 推荐股名流入 md
+        self.assertIn("600001", md)              # 推荐代码流入 md
+
+
+class TestSelectPicks(unittest.TestCase):
+    def test_skips_candidate_on_fetch_failure(self):
+        """单只取数失败（如退市票触发接口 501）被跳过，不中断整体选股。"""
+        def fk(code):
+            if code == "600002":
+                raise RuntimeError("接口 501")
+            return _rising_klines()
+        picks = recommend.select_picks(_snapshot_fixture(), fk, top_n=3)
+        codes = {p["code"] for p in picks}
+        self.assertNotIn("600002", codes)   # 抛异常的候选被跳过
+        self.assertEqual(len(picks), 3)      # 其余正常候选仍取满 Top3
+
 
 class TestFormatReport(unittest.TestCase):
     def test_non_trading_mentions_risk_and_closed(self):
@@ -150,6 +184,23 @@ class TestFormatReport(unittest.TestCase):
             {"date": "2026-07-10", "is_trading_day": True, "picks": [], "written": False})
         self.assertIn("风险声明", txt)
         self.assertIn("未筛选出", txt)
+
+
+class TestRenderMd(unittest.TestCase):
+    def test_escapes_pipe_in_table_cell(self):
+        """reason/name 中的管道符必须转义，否则破坏 Markdown 表格。"""
+        import common
+        md = common.render_recommendations_md([
+            {"date": "2026-07-10", "code": "600001", "name": "A|B",
+             "price": 10.0, "pe": 20.0, "score": 88.0, "reason": "x|y"}])
+        self.assertIn("A\\|B", md)
+        self.assertIn("x\\|y", md)
+
+    def test_empty_records_has_risk_notice(self):
+        import common
+        md = common.render_recommendations_md([])
+        self.assertIn("风险声明", md)
+        self.assertIn("暂无推荐记录", md)
 
 
 if __name__ == "__main__":

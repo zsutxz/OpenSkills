@@ -52,7 +52,8 @@ python scripts/review.py        # 历史复盘：输出 docs/a-stock-picker/repo
 
 ## 输出与持久化
 
-- `docs/a-stock-picker/data/recommendations.jsonl`：推荐历史，每行一条，追加写入，同日重跑去重覆盖。
+- `docs/a-stock-picker/data/recommendations.jsonl`：推荐历史，每行一条，追加写入，同日重跑去重覆盖（review.py 复盘的程序输入）。
+- `docs/a-stock-picker/data/recommendations.md`：推荐历史的人类可读 Markdown 镜像，与 jsonl 同源、每次落盘整体重写（按交易日倒序分组的表格）。
 - `docs/a-stock-picker/reports/review-YYYYMMDD.md`：复盘报告，顶部含风险声明。
 
 ## 数据与依赖

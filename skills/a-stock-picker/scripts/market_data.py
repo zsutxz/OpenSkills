@@ -3,7 +3,8 @@
 
 数据源选型（经实测稳定性，2026-07）：
 - 新浪 vip.stock.finance.sina.com.cn：全市场 A 股列表 + 实时快照（价/PE/PB/涨跌幅/市值），稳定。
-- 腾讯 web.ifzq.gtimg.cn：前复权日 K 线（算 MA/MACD/量），连续请求稳定 ~70ms。
+- 腾讯前复权日 K：主域 web.ifzq.gtimg.cn 自 2026-07-12 起持续 501 失效，改用镜像
+  proxy.finance.qq.com/ifzqgtimg（同结构 data.<sym>.qfqday，连续请求稳定 ~70ms）。
 - 东财 push2 / push2his 有 WAF 速率限制（连续请求被掐断 000），弃用。
 
 接口：
@@ -18,7 +19,8 @@ import urllib.request
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
-TX_KLINE_URL = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+# 主域 web.ifzq.gtimg.cn 自 2026-07-12 起持续返回 501 失效，改用同结构镜像。
+TX_KLINE_URL = "https://proxy.finance.qq.com/ifzqgtimg/appstock/app/fqkline/get"
 TX_QUOTE_URL = "https://qt.gtimg.cn/q="
 SINA_LIST_URL = ("http://vip.stock.finance.sina.com.cn/quotes_service/api/"
                  "json_v2.php/Market_Center.getHQNodeData")

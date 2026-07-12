@@ -52,12 +52,20 @@ class TestRecommendReviewContract(unittest.TestCase):
         self._orig_rev = review.RECOMMEND_FILE
         recommend.RECOMMEND_FILE = self.tmp.name
         review.RECOMMEND_FILE = self.tmp.name
+        # recommend 落盘时还会双写 md 镜像，同样重定向避免污染真实 recommendations.md
+        self.tmp_md = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".md", delete=False, encoding="utf-8")
+        self.tmp_md.close()
+        self._orig_md = recommend.RECOMMEND_MD_FILE
+        recommend.RECOMMEND_MD_FILE = self.tmp_md.name
 
     def tearDown(self):
         recommend.RECOMMEND_FILE = self._orig_rec
         review.RECOMMEND_FILE = self._orig_rev
-        if os.path.exists(self.tmp.name):
-            os.remove(self.tmp.name)
+        recommend.RECOMMEND_MD_FILE = self._orig_md
+        for p in (self.tmp.name, self.tmp_md.name):
+            if os.path.exists(p):
+                os.remove(p)
 
     def test_recommend_output_is_reviewable(self):
         rec_date = "2026-07-10"  # 周五·交易日

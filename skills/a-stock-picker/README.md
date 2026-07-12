@@ -31,16 +31,17 @@ tests/                 单元测试（python tests/test_*.py）
 运行时产物不在本 skill 目录，统一写到仓库根 `docs/a-stock-picker/`（已在 `.gitignore`，不进仓库）：
 
 ```
-docs/a-stock-picker/data/recommendations.jsonl   推荐历史（追加 + 同日去重）
+docs/a-stock-picker/data/recommendations.jsonl   推荐历史（追加 + 同日去重；review.py 复盘输入）
+docs/a-stock-picker/data/recommendations.md      推荐历史人类可读镜像（与 jsonl 同源，每次整体重写）
 docs/a-stock-picker/reports/review-YYYYMMDD.md    复盘报告
 ```
 
-## 定时任务配置（工作日 15:30 自动选股）
+## 定时任务配置（工作日 09:10 自动选股）
 
 ### Windows · 任务计划程序
 
 1. 打开"任务计划程序" → 创建基本任务。
-2. 触发器：每日 15:30。
+2. 触发器：每日 09:10（开盘前，用最近一个交易日收盘数据选当日标的）。
 3. 操作：启动程序
    - 程序：`python`（或完整路径，如 `C:\Python311\python.exe`）
    - 参数：`scripts\recommend.py`
@@ -50,8 +51,8 @@ docs/a-stock-picker/reports/review-YYYYMMDD.md    复盘报告
 ### Linux / macOS · crontab
 
 ```cron
-# 工作日(周一至五) 15:30 跑选股
-30 15 * * 1-5  cd /path/to/a-stock-picker && /usr/bin/python3 scripts/recommend.py >> /tmp/a-stock-picker.log 2>&1
+# 工作日(周一至五) 09:10 开盘前跑选股（用最近交易日收盘数据）
+10 9 * * 1-5  cd /path/to/a-stock-picker && /usr/bin/python3 scripts/recommend.py >> /tmp/a-stock-picker.log 2>&1
 ```
 
 ### 会话内（临时）

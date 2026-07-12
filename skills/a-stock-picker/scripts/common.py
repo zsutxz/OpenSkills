@@ -21,6 +21,8 @@ OUTPUT_DIR = os.path.join(PROJECT_ROOT, "docs", "a-stock-picker")
 DATA_DIR = os.path.join(OUTPUT_DIR, "data")
 REPORTS_DIR = os.path.join(OUTPUT_DIR, "reports")
 RECOMMEND_FILE = os.path.join(DATA_DIR, "recommendations.jsonl")
+# 推荐历史的人类可读 Markdown 镜像（与 jsonl 同源同目录，每次落盘整体重写）
+RECOMMEND_MD_FILE = os.path.join(DATA_DIR, "recommendations.md")
 
 
 def fmt_pct(ratio, width=7):
@@ -66,3 +68,53 @@ def rewrite_jsonl(path, records):
         for r in records:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
     os.replace(tmp, path)
+
+
+def write_text(path, text):
+    """原子覆盖写文本文件（自动建父目录）；用于 md 镜像整体重写。"""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+def _md_escape(s):
+    """转义 Markdown 表格单元格里的管道符，避免破坏表格结构。"""
+    return str(s).replace("|", "\\|")
+
+
+def render_recommendations_md(records):
+    """推荐记录列表 → 人类可读 Markdown（顶部风险声明 + 按交易日倒序分组表格）。
+
+    records: list[dict]，每项含 date/code/name/price/pe/score/reason。
+    与 recommendations.jsonl 同源：每次落盘由 recommend 主流程用全部记录整体重写，
+    保证 md 与 jsonl 始终一致。空列表返回仅含风险声明的占位。
+    """
+    lines = ["# 选股推荐历史", "", RISK_NOTICE, "",
+             "> 由 a-stock-picker 稳健趋势策略生成，仅供信息参考，不构成投资建议。", ""]
+    if not records:
+        lines.append("_暂无推荐记录。_")
+        return "\n".join(lines) + "\n"
+
+    # 按日期分组（保留每组原始顺序），日期倒序排列——最新推荐在最上
+    by_date = {}
+    order = []
+    for r in records:
+        d = r.get("date", "")
+        if d not in by_date:
+            by_date[d] = []
+            order.append(d)
+        by_date[d].append(r)
+
+    for d in sorted(order, reverse=True):
+        lines.append("## %s" % d)
+        lines.append("")
+        lines.append("| 名称 | 代码 | 入选价 | PE | 得分 | 理由 |")
+        lines.append("|:---|:---:|---:|---:|---:|:---|")
+        for r in by_date[d]:
+            lines.append("| %s | `%s` | %s | %s | **%s** | %s |" % (
+                _md_escape(r.get("name", "")), r.get("code", ""), r.get("price", ""),
+                r.get("pe", ""), r.get("score", ""), _md_escape(r.get("reason", ""))))
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
