@@ -1,7 +1,8 @@
 ---
 name: project-orchestrator
 description: |
-  端到端项目交付编排器。当用户说"从零做一个项目""启动一个项目并完整交付"
+  端到端项目交付编排器。按项目复杂度自动选 Quick/Standard/Enterprise 三轨道
+  （小工具跳过架构层直奔 TDD，大系统加专项文档）。当用户说"从零做一个项目""启动一个项目并完整交付"
   "端到端完成这个项目""帮我把这个想法做成可发布的产品""接着上次的项目继续/
   恢复项目进度""项目现在到哪一步了""自动跑完，不用管它"，或要求把一个项目
   从需求一路推进到发布时，自动激活。按「规划层（需求/架构/切片拆解）→ 执行层
@@ -11,7 +12,7 @@ description: |
   不用于单点任务（修 bug、加按钮、重构函数、改文档）——那是直接干活，不是发起完整流水线。
 license: MIT
 allowed-tools: [Bash, Read, Write, Edit, Glob, Grep, WebSearch, Task, CronCreate, CronDelete, CronList, TaskCreate, TaskUpdate, TaskList, TaskGet]
-version: 0.2.0
+version: 0.4.0
 metadata:
   category: orchestration
   tags: [project, pipeline, autonomous, delivery, subagent, slicing, tdd]
@@ -28,7 +29,7 @@ metadata:
 3. **全部产出用中文**（代码注释、文档、报告、提交信息）。
 4. **失败有界**：每个阶段、每个切片 `retry_count` 上限 3，超限就暂停求助，不死磕、不空转烧预算。
 
-其余贯穿性约束见对应章节：时间戳用 bash `date`（「时间戳与确定性」）、子代理先探测 ecc 再调度（「调度规则」）、切片是执行单位且 TDD 测试先行（「阶段流水线/6.1」）、状态只写目标项目根不污染插件目录（「工作目录与持久化」）。
+其余贯穿性约束见对应章节：时间戳用 bash `date`（「时间戳与确定性」）、子代理先探测 ecc 再调度（「调度规则」）、切片是执行单位且 TDD 测试先行（「阶段流水线/6.1」）、状态只写目标项目根不污染插件目录（「工作目录与持久化」）、每阶段/切片开头先测上下文预算代理指标（「上下文预算」）。
 
 ## 意图路由
 
@@ -57,7 +58,7 @@ metadata:
     ├── architecture.md
     ├── slices.md         # 切片拆解清单（规划层产物，执行层输入）
     ├── dev-log.md        # 跨切片开发记录，按切片分段追加
-    ├── review-report.md  # 跨切片审查记录，按切片分段追加
+    ├── review-report.md  # 每切片一段审查结论（格式见 §6.2 步骤 d）
     └── release-notes.md
 ```
 
@@ -68,6 +69,20 @@ metadata:
 1. 当前工作目录下存在 `.project-orchestrator/state.json` → 即该项目，直接用。
 2. 否则问用户：新建项目放哪个路径？要恢复哪个已有项目（给路径）？不要脑补路径。
 
+## 轨道（三轨道自适应）
+
+不是所有项目都该走完整三层流水线。按复杂度分三轨，新建时自动推荐、用户可改（记入 `state.json.project.track`）：
+
+| 轨道 | 触发信号 | 流程差异 |
+|------|----------|----------|
+| **Quick** | 单功能 / 脚本 / 工具 / 小 MVP，预期 ≤3 切片，单技术栈 | 规划层合并：需求(SPEC) + 切片，**跳过独立 architecture 子阶段**；确认点省②（架构定稿），由 5 减为 4 |
+| **Standard**（默认） | 多功能应用 / 常规服务 | 现状三层流水线，不变 |
+| **Enterprise** | 多服务 / 合规 / 团队协作 | Standard + 架构阶段附带专项文档（安全 / DevOps 清单） |
+
+**判定时机**：新建流程第 1 步确认项目要素时，根据一句话目标 + 技术栈 + 预期规模推荐轨道，向用户确认后写入 `track`。恢复已有项目时沿用其 `track`。
+
+> Quick 轨**只省架构层**——执行层 TDD + 切片审查门禁（§6.2 步骤 d）**一律不省**，那是质量底线。Enterprise 轨的专项文档由架构师角色在 architecture 阶段附带产出（不新增独立阶段）。
+
 ## 新建流程
 
 1. **确认项目要素**（缺哪项问哪项，不臆测）：
@@ -75,6 +90,7 @@ metadata:
    - 技术栈倾向（用户没想法则由架构阶段提议）
    - 目标仓库地址（可暂无，发布阶段再定）
    - 项目根路径（默认当前目录，或用户指定）
+   - **交付轨道**：据目标+规模推荐 Quick/Standard/Enterprise（见上「轨道」），用户确认后写入 `state.json.project.track`
 2. **建状态目录**（bash 一次完成）：
    ```bash
    PROJ_ROOT="<项目根绝对路径>"
@@ -91,13 +107,33 @@ metadata:
 ### 通用骨架
 
 ```
-0. [Token 检查点] 进入新阶段/新切片前，先向用户展示一行状态：
-      ⚙️ 即将进入「<阶段/切片名>」（规划层 X/3 或 切片 Y/N）。上下文是否还充裕？
-      [继续] / [先 /compact 再继续] / [保存进度，稍后重启]
-   - 用户选"继续" → 直接走步骤 a。
-   - 用户选"/compact" → 提示执行 /compact，等用户确认压缩完成后再走步骤 a。
-   - 用户选"重启" → 提示：进度已保存至 state.json，重启后说"继续上次项目"即可恢复。然后停止。
-   - 无人值守模式（config.autonomous=true）→ 跳过本检查点，不打断自动推进。
+0. [上下文预算检查] 进入新阶段/新切片前，先测代理指标，按阈值自动决策
+     （指标与阈值定义见「上下文预算」，测法与校准见 references/context-budget.md）。
+   指标（读 state.json 算，辅以 `wc -l < "$PROJ_ROOT/.project-orchestrator/events.log"`）：
+     - 规划层：planning 三阶段里 status=completed 的 / 3
+     - 执行层：slices[] 里 status=completed 的 / slices.length
+     - 收尾层：短阶段，免检
+   辅助信号：events.log 行数（防"进度没到但事件已爆"，如某切片反复重试）。
+   阈值来自 config.context_budget（缺省 软 0.50 / 硬 0.75，行数软 120 / 硬 200）：
+     - 未达软档（且行数也未超标）→ 不打扰，直接走步骤 a。
+     - 达软档，或辅助行数达标 → 先 tmp+mv 落盘 state.json、追加 events.log
+       （event=上下文预算触发, level=soft），再向用户展示一行：
+         ⚙️ 进度约 <P%>（切片 Y/N 或 规划 X/3，events.log <L> 行）——代理指标，提示上下文可能偏紧。建议先 /compact 再继续，进度已存盘。
+         [先 /compact 再继续] / [不管，继续] / [保存进度，稍后重启]
+       用户压缩后说"继续" → 走步骤 a；说"重启" → 停止（恢复见「恢复流程」）。
+       注：同一会话内若已对当前 <P%> 提示过软档且用户已处理（/compact 或选"不管"），
+           不重复打扰，直接走步骤 a——/compact 不改进度比，靠这条防反复触发。
+     - 达硬档 → 先落盘 + 记 events.log（level=hard），再提示：
+         ⚠️ 进度约 <P%>（代理指标），上下文已偏紧，建议 /clear 后新会话说"继续上次项目"恢复。
+            state.json 是唯一真相源，/clear 不丢进度。
+       然后停止本轮，等用户 /clear 后在新会话由「恢复流程」续跑。
+   自主模式（config.autonomous=true）——无人值守无法自 /compact 或 /clear，按档降级（不再跳过）：
+     - 未达软档 → 正常推进，走步骤 a。
+     - 达软档 → 本轮 cron 不开新切片/新阶段，只落盘 + 记 events.log
+       （level=soft, autonomous=true, note="本轮跳过新单元"）+ 结束本轮等下次 cron。
+     - 达硬档 → 落盘 + 记 events.log（level=hard, autonomous=true, note="需人工 /clear"）
+       + 本轮停止 + 在下次能汇报的时机告知需人工 /clear。
+     诚实声明：无人值守下上下文压力是固有风险，机制只能"不再加重 + 告警"，做不到自动清缓存续跑。
 a. 读 state.json，把当前阶段/切片标 in_progress（写 started_at 时间戳）
 b. 按调度表调度子代理（优先专家 → 兜底），把任务、输入产物、输出产物路径交代清楚
 c. 把产物写入 artifacts/<对应>.md（切片开发/审查记录追加进 dev-log.md / review-report.md）
@@ -110,15 +146,19 @@ f. 若是"确认点" → 暂停汇报等用户确认；否则不停顿，推进�
 
 依次跑需求分析 → 架构设计 → 切片拆解，每阶段套通用骨架。切片拆解完成后 `current_stage` 从 `planning` 切到 `execution`，`current_slice_index=0`。
 
+> **Quick 轨（track=quick）跳过 architecture 子阶段**：需求(SPEC)定稿后直接进 slicing，架构决策并入切片描述，确认点②（架构定稿）随之省略——Quick 轨只有 4 个确认点。**Enterprise 轨（track=enterprise）**在 architecture 阶段额外让架构师产出安全/DevOps 专项清单（不新增独立阶段）。
+
 **规划层调度表**：
 
 | # | 阶段 | 优先子代理 | 兜底（project-role-worker 角色） | 产物 | 完成判据 |
 |---|------|-----------|----------------------------------|------|----------|
-| 1 | 需求分析 | `ecc:plan-prd` / `ecc:prp-prd` / `ecc:planner` | 产品经理 | `requirements.md` | 含目标/用户故事/范围/非范围/验收标准；**用户确认（确认点①）** |
+| 1 | 需求分析 | `ecc:plan-prd` / `ecc:prp-prd` / `ecc:planner` | 产品经理 | `requirements.md` | 含 **SPEC 5 段**（Why/Capabilities/Constraints/Non-goals/Success signal，Success signal 每条可测）；**用户确认（确认点①）** |
 | 2 | 架构设计 | `ecc:architect` | 架构师 | `architecture.md` | 含技术栈/目录结构/模块职责/数据流/风险；**用户确认（确认点②）** |
-| 3 | 切片拆解 | `ecc:planner` / `ecc:plan` / `ecc:prp-plan` | 架构师 | `slices.md` | 把项目拆成 N 个可独立交付的切片，**每切片有 title/goal/可验证 acceptance**；**用户确认（确认点③）** |
+| 3 | 切片拆解 | `ecc:planner` / `ecc:plan` / `ecc:prp-plan` | 架构师 | `slices.md` | 拆成 N 个可独立交付切片，**每切片有 title/goal/可验证 acceptance + `covers`（覆盖哪些架构组件）**，并通过**架构-切片一致性体检**；**用户确认（确认点③）** |
 
-> slicing 阶段的产物同时填进 `state.json.slices[]`：每个切片落 `id`/`title`/`goal`/`acceptance`/`status=pending`。**acceptance 必须具体可测**，否则执行层 TDD 测试先行无从下笔——这是 slicing 阶段的硬性完成判据。
+> slicing 阶段的产物同时填进 `state.json.slices[]`：每个切片落 `id`/`title`/`goal`/`acceptance`/`covers`/`status=pending`。**acceptance 必须具体可测、`covers` 必须映射到 architecture.md 的组件**，否则执行层 TDD 测试先行无从下笔——这是 slicing 阶段的硬性完成判据。
+>
+> **架构-切片一致性体检**（slicing 定稿、进确认点③前的硬性校验，借鉴 BMAD implementation-readiness）：①正向——每切片 `covers` 标注它实现哪些架构组件/决策；②反向——`architecture.md` 每个核心组件/模块至少被一个切片覆盖（无孤儿组件、无遗漏切片）。不通过则 slicing 重做（补切片或修架构），不进确认点③。Quick 轨无独立架构层时，`covers` 映射到 requirements 的 Capabilities。
 
 ### 6.2 执行层（逐切片 TDD 小循环）
 
@@ -130,13 +170,35 @@ b. 测试先行（红）：调度测试角色，输入=slices.md 该切片 goal+
    产出该切片测试用例，确认它们当前跑红（功能尚未实现）。slices[i].tdd.test=completed
 c. 开发到绿：调度开发角色（按改动规模派单，见下），实现到该切片测试全绿；
    build 失败调对应语言 ecc:*-build-resolver（缺失则 project-role-worker 开发角色）。
-   slices[i].tdd.dev=completed
-d. 切片小审查：ecc:code-reviewer + ecc:security-reviewer 两条 Task **并行**，**仅审查本切片 diff**；
-   发现 🔴 高危 → 回步骤 b/c 重跑该切片测试（不重开全量审查），retry_count++，上限 3 暂停求助。
-   slices[i].tdd.review=completed
-e. git commit（不 push）：commit message 引用 slice id，把 sha 记进 slices[i].commit_sha
-f. slices[i].status=completed（写 completed_at），追加 events.log，current_slice_index++
+   **升级护栏**：开发中若发现「改动远超切片描述 / 触及 architecture 未覆盖的新组件 / 引入新外部依赖」，
+   不要闷头 retry——暂停、记 events.log（event=升级护栏触发）、建议回规划层补切片或修架构
+   （与 retry≤3 互补：retry 是同方向再试，升级护栏是方向错了回头）。无越界则 slices[i].tdd.dev=completed。
+d. 【门禁·切片审查】commit 前必做，不得跳过——**无论代码由主 agent 还是子代理所写**：
+   d1. 并行调度 ecc:code-reviewer + ecc:security-reviewer，**仅审本切片 diff**
+       （`git diff <上一切片 commit 或空树>..HEAD`；首切片用空树 `$(git hash-object -t tree /dev/null)`）；
+       ecc 缺失则 project-role-worker 审查角色（产出同一套严重度词汇，见下）。
+   d2. 把结论追加到 `artifacts/review-report.md`（按切片分段，格式见代码块下方）。
+   d3. 门禁判定：
+       - 🔴 CRITICAL / 🟠 HIGH → 回步骤 b/c 修复后**仅重审该问题**（不重开全量），retry_count++，上限 3 暂停求助，**不得 commit**；
+       - 🟡 MEDIUM / ⚪ LOW / NIT → 可缓修，但必须在 review-report.md 记一句缓修理由，并回写 slices[i].notes；
+       - 无 🔴/🟠 → review 通过，进入 e。
+   d4. slices[i].tdd.review 写 `{status:completed, verdict, findings, deferred, artifact}`
+       （schema 见 `references/state-schema.md`）。只有跑过 d 并通过，才算 review 真完成——不得空标 completed。
+e. git commit（不 push）：**前置条件 = d 通过**（无 🔴/🟠）。commit message 引用 slice id，把 sha 记进 slices[i].commit_sha。
+f. slices[i].status=completed（写 completed_at）：**前置条件 = tdd.test/dev/review 均 completed**；
+   追加 events.log，current_slice_index++。
 ```
+
+> `review-report.md` 每切片一段，字段顺序固定（便于恢复时 grep）：
+>
+> ```
+> ## slice-N · <title>  (<commit sha 或"未提交">)
+> - 审查者：ecc:code-reviewer / ecc:security-reviewer / project-role-worker
+> - verdict：pass | pass-with-deferred | fail
+> - findings：🔴<n> 🟠<n> 🟡<n> ⚪<n>
+> - 必修（已处理）：[<一句话问题 + 如何修>, ...]
+> - 缓修（低级别）：[<一句话问题 + 理由>, ...]
+> ```
 
 **执行层调度表**：
 
@@ -144,12 +206,14 @@ f. slices[i].status=completed（写 completed_at），追加 events.log，curren
 |-----------|-----------|----------------------------------|
 | 测试先行（红） | `ecc:tdd-guide` / 各语言 `ecc:*-test` | 测试 |
 | 开发实现（绿） | 按改动规模派单（见下） | 开发 |
-| 切片小审查 | `ecc:code-reviewer` + `ecc:security-reviewer`（并行，仅本切片 diff） | 审查 |
+| 切片审查（门禁 d） | `ecc:code-reviewer` + `ecc:security-reviewer`（并行，仅本切片 diff） | 审查 |
 
 **开发派单规则**（步骤 c 内部）：主 agent 不独自扛大改动，按规模分工——
 
 - 单文件 / 小改动（几十行内）：主 agent 直接写。
 - 多文件 / 新建模块 / 大功能：派给 `project-role-worker` 开发角色，主 agent 只做协调与 state 更新，避免上下文爆炸。
+
+> **无论开发派给子代理还是主 agent 自写，步骤 d 审查门禁一律强制**——这是 a-stock-picker 的 slice-1/2 曾被绕过的口子：代码可以主 agent 直接写，但 commit 前的 review 不可省。
 
 ### 6.3 收尾层（一次性）
 
@@ -179,7 +243,7 @@ e. release.status=completed，顶层 status=completed，停止
 | # | 节点 | 停下来做什么 |
 |---|------|-------------|
 | ① | 需求定稿 | 展示 `requirements.md` 要点，等用户拍板范围 |
-| ② | 架构定稿 | 展示 `architecture.md` 要点，等用户拍板技术方案 |
+| ② | 架构定稿 | 展示 `architecture.md` 要点，等用户拍板技术方案（**Quick 轨无此点**：跳过 architecture 层） |
 | ③ | 切片清单定稿 | 展示 `slices.md`（切片范围/顺序/每切片 acceptance），等用户拍板再进入执行层 |
 | ④ | 发布 push 前 | 展示将推送的提交清单，等用户确认推送 |
 | ⑤ | 部署前（可选） | 仅当用户要求部署/发包时才出现 |
@@ -205,6 +269,8 @@ e. release.status=completed，顶层 status=completed，停止
    - `release` → 收尾层续跑。
 
 > 关键：恢复后绝不从需求阶段重头来——那是失忆。靠 `state.json` 接着断点走，精确到切片内 TDD 的某一步。
+>
+> 跨会话保留：`retry_count`、缓修 `notes`、`decisions` 都随 state.json 持久化。即便上次是因上下文预算硬档触发 `/clear` 而停（events.log 末条 `上下文预算触发` level=hard 可证），新会话恢复时这些计数**不清零**——/clear 只清对话，不洗失败计数。
 
 ## 停止条件
 
@@ -218,6 +284,16 @@ e. release.status=completed，顶层 status=completed，停止
 ## 自主模式（cron 无人值守）
 
 用户说"自动跑完 / 无人值守 / 不用管它"时，按 `templates/autonomous-cron.md` 的步骤与 CronCreate 模板注册周期任务。要点：`durable=true`（持久化跨会话，会话断了下个周期由新会话读 state.json 自动接力）、recurring 任务 7 天后自动过期、job id 存进 `config.cron_job_id`、项目完成或用户喊停时 `CronDelete` 清理（durable 不随会话消失，必须手动清，否则空跑到过期）。
+
+## 上下文预算
+
+主 agent 读不到自己的上下文用量百分比，也不能自己执行 /compact 或 /clear。本机制是退化形态：**自动测代理指标 → 自动 tmp+mv 落盘 state.json → 提示用户按 /compact 或 /clear → 用户说"继续"后从断点续跑**。计算与校准细节见 `references/context-budget.md`。
+
+- **代理指标（主信号）= 切片进度比**：规划层 = planning 三阶段已完成数 / 3；执行层 = slices[] 里 status=completed 的 / slices.length；收尾层免检。它确定可数、与上下文累积强相关，且"50%"直接对应用户直觉。
+- **辅助信号 = events.log 行数**：防"进度没到但事件已爆"（如某切片反复重试）。行数也超阈值时，即使进度比未到，也按已触发的低档处理。
+- **两档阈值**（config.context_budget 可覆盖，缺省软 0.50 / 硬 0.75）：软档走 /compact（压缩保留摘要），硬档走 /clear（彻底清空，靠 state.json 恢复——更契合本 skill"唯一真相源"理念）。
+- **自主模式降级**：autonomous=true 时无法自 /clear，达软档本轮不开新单元、落盘等下次 cron；达硬档落盘告警、停本轮、待人工 /clear。诚实承认无人值守下上下文压力是固有风险，机制只能"不再加重 + 告警"。
+- 触发后一律先 tmp+mv 落盘再提示，绝不丢进度；具体测法、阈值校准、与 events.log 集成见 `references/context-budget.md`。
 
 ## 时间戳与确定性
 

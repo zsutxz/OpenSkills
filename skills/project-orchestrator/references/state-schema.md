@@ -14,7 +14,8 @@
     "goal": "一句话目标",
     "repo_url": null,
     "tech_stack": [],
-    "root_path": "项目根绝对路径"
+    "root_path": "项目根绝对路径",
+    "track": "quick | standard | enterprise"   /* 交付轨道,缺省 standard;Quick 跳过架构层,见 SKILL.md「轨道判定」 */
   },
   "status": "running | completed | abandoned | paused",
   "current_stage": "planning | execution | release",
@@ -41,11 +42,20 @@
       "title": "切片标题",
       "goal": "这个切片交付什么",
       "acceptance": ["可验证的验收条件1", "..."],
+      "covers": ["<架构组件/决策标识>", "..."],  /* 该切片实现哪些架构组件,供「架构-切片一致性体检」;可选,老项目无此键不报错 */
       "status": "pending | in_progress | completed | failed",
       "tdd": {
         "test":   { "status": "pending | completed", "started_at": null, "completed_at": null },
         "dev":    { "status": "pending | completed", "started_at": null, "completed_at": null },
-        "review": { "status": "pending | completed", "started_at": null, "completed_at": null }
+        "review": {
+          "status": "pending | in_progress | completed | failed",
+          "started_at": null,
+          "completed_at": null,
+          "verdict": "pass | pass-with-deferred | fail",  /* 完成前为 null */
+          "findings": {"critical": 0, "high": 0, "medium": 0, "low": 0},
+          "deferred": ["缓修的低级别问题一句话…"],
+          "artifact": "artifacts/review-report.md#slice-N"
+        }
       },
       "commit_sha": null,
       "retry_count": 0,
@@ -67,7 +77,14 @@
   "config": {
     "autonomous": false,
     "cron_job_id": null,
-    "deploy_enabled": false
+    "deploy_enabled": false,
+    "context_budget": {                    /* 上下文预算自动管理,见 SKILL.md「上下文预算」 */
+      "enabled": true,                     /* 总开关,false 则跳过预算检查 */
+      "soft_threshold": 0.5,               /* 进度比软档,触发提示 /compact */
+      "hard_threshold": 0.75,              /* 进度比硬档,触发提示 /clear 并停 */
+      "event_lines_soft": 120,             /* events.log 行数软档(辅助信号) */
+      "event_lines_hard": 200              /* events.log 行数硬档 */
+    }
   }
 }
 ```
@@ -77,11 +94,16 @@
 - 顶层 `status` 只有 4 个值，恢复时一眼判断项目状态。
 - `current_stage` + `current_slice_index` 取代旧版 `current_phase`，恢复时一眼定位在哪层、哪个切片。
 - `slices[]` 是动态数组，slicing 阶段产出后才填；每个切片内嵌 `tdd.test/dev/review` 三步状态，小循环进度可追踪、可断点续跑。
+- `tdd.review` 带 `verdict`/`findings`/`deferred`/`artifact` 而非单纯布尔态：让恢复时/用户能从 state.json 一眼确认 review 真做过、审出什么（对症"空标 completed 跳过审查"）；`findings` 用四档计数——state.json 存英文键名 `{critical,high,medium,low}`（代码友好），展示层映射 critical=🔴/high=🟠/medium=🟡/low=⚪，与 SKILL.md §6.2 门禁判定及 review-report.md 同词汇。
 - `commit_sha` 让每个切片可独立回滚。
 - `planning.<name>.retry_count` / `slices[i].retry_count` 是防死循环的关键。
 - `artifact` 用相对项目根的路径，便于整目录迁移。
+- `project.track` 决定走哪条交付轨道（quick/standard/enterprise，缺省 standard；老 v2 项目缺省合并不报错、**不 bump schema_version**，沿用 context_budget 先例）。`slices[].covers`（可选）记录每切片覆盖的架构组件，支撑 slicing 阶段「架构-切片一致性体检」——老项目无此键不报错。
 - `decisions` 记录每个确认点结论，恢复时让用户回忆上次决策。
 - `config.autonomous` + `cron_job_id` 支撑无人值守模式的可取消。
+- `config.context_budget` 控制上下文预算自动管理（详见 SKILL.md「上下文预算」与 `references/context-budget.md`）：纯新增可选键，**老 v2 项目缺省合并不报错、不当作旧版**——
+  DEFAULT_CB = {enabled:true, soft_threshold:0.5, hard_threshold:0.75, event_lines_soft:120, event_lines_hard:200}；
+  读取时 DEFAULT_CB 与 config.context_budget 浅合并（没写用默认、写了哪项覆盖哪项、缺一半不崩）。本次仅新增可选键，**schema_version 保持 "2" 不 bump**。
 
 ## 原子写入
 
