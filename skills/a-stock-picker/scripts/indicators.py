@@ -39,8 +39,6 @@ def ema(values, n):
     这是同花顺/通达信等 A 股行情软件的通用约定。
     输入长度不足 n 时全部为 None。
     """
-    if not values:
-        return []
     if len(values) < n:
         return [None] * len(values)
     alpha = 2.0 / (n + 1)

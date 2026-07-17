@@ -14,12 +14,12 @@ CLI：python scripts/review.py   （读 docs/a-stock-picker/data/recommendations
 import os
 import re
 
-from common import REPORTS_DIR, RECOMMEND_FILE, RISK_NOTICE, calc_return, fmt_pct, read_jsonl
+from common import (REPORTS_DIR, RECOMMEND_FILE, RISK_NOTICE, calc_return,
+                    ensure_utf8_stdout, fmt_pct, read_jsonl, write_text)
 from market_data import get_klines
 from trading_calendar import today_iso
 
 HORIZONS = ("ret_1", "ret_5", "ret_10")   # T+1 / T+5 / T+10
-HORIZON_OFFSET = {"ret_1": 1, "ret_5": 5, "ret_10": 10}
 HORIZON_LABEL = {"ret_1": "T+1", "ret_5": "T+5", "ret_10": "T+10"}
 
 
@@ -54,9 +54,9 @@ def backtest_record(record, klines):
         "name": record.get("name"),
         "date": rec_date,
         "entry": entry,
-        "ret_1": ret_at(HORIZON_OFFSET["ret_1"]),
-        "ret_5": ret_at(HORIZON_OFFSET["ret_5"]),
-        "ret_10": ret_at(HORIZON_OFFSET["ret_10"]),
+        "ret_1": ret_at(1),
+        "ret_5": ret_at(5),
+        "ret_10": ret_at(10),
     }
 
 
@@ -144,19 +144,18 @@ def format_report(summary, date=None):
 
 def save_report(text, date=None):
     """写报告到 docs/a-stock-picker/reports/review-YYYYMMDD.md，返回路径。"""
-    os.makedirs(REPORTS_DIR, exist_ok=True)
     date = date or today_iso()
     # 防御纵深：date 进入文件名，强制 ISO 格式，杜绝路径穿越（../ 等）
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
         raise ValueError("date 必须为 YYYY-MM-DD 格式：%r" % date)
     path = os.path.join(REPORTS_DIR, "review-%s.md" % date.replace("-", ""))
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(text)
+    write_text(path, text)
     return path
 
 
 def main():
     """CLI 入口：跑复盘，打印并存盘 Markdown 报告。"""
+    ensure_utf8_stdout()
     summary = run()
     txt = format_report(summary)
     path = save_report(txt)

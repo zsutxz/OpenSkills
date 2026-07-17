@@ -10,13 +10,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 from indicators import ma, ema, macd, vol_ratio  # noqa: E402
-
-
-def _approx(a, b, tol=1e-6):
-    """None 安全的浮点近似比较。"""
-    if a is None or b is None:
-        return a is None and b is None
-    return abs(a - b) <= tol
+from _fixtures import approx as _approx  # noqa: E402
 
 
 def _seq_approx(xs, ys, tol=1e-6):

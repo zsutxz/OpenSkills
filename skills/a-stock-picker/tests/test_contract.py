@@ -10,34 +10,12 @@ import os
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 import recommend  # noqa: E402
 import review  # noqa: E402
-
-
-def _snapshot_fixture():
-    """3 只正常股（可通过 filter_pool + score 入选）。"""
-    return [
-        {"code": "600001", "name": "科创先锋", "price": 25.0, "pe": 30.0},
-        {"code": "600002", "name": "蓝筹稳健", "price": 12.0, "pe": 18.0},
-        {"code": "600003", "name": "成长之星", "price": 8.5, "pe": 22.0},
-    ]
-
-
-def _dated_rising_klines(end_date, n=120, growth=1.006, vol_recent_mult=1.4):
-    """生成 n 根带日期的上升 K 线，末日 = end_date。
-
-    close 按 growth 复利上升、近 5 日温和放量（量比约 1.27，可通过 score 入选）；
-    带连续日期，供 review.backtest_record 按 rec_date 定位索引并算 T+n 收益。
-    """
-    end = datetime.strptime(end_date, "%Y-%m-%d").date()
-    dates = [(end - timedelta(days=n - 1 - i)).isoformat() for i in range(n)]
-    closes = [100.0 * (growth ** i) for i in range(n)]
-    vols = [1000.0] * (n - 5) + [1000.0 * vol_recent_mult] * 5
-    return [{"date": d, "close": c, "volume": v} for d, c, v in zip(dates, closes, vols)]
+from _fixtures import rising_klines, snapshot_fixture  # noqa: E402
 
 
 class TestRecommendReviewContract(unittest.TestCase):
@@ -71,10 +49,10 @@ class TestRecommendReviewContract(unittest.TestCase):
         rec_date = "2026-07-10"  # 周五·交易日
 
         def fetch_klines(code):  # klines 末日取 rec_date 之后，使 T+1..T+10 在 review 回测时存在
-            return _dated_rising_klines(end_date="2026-07-24")
+            return rising_klines(end_date="2026-07-24")
 
         # 1) recommend 选股并落盘到 RECOMMEND_FILE
-        res = recommend.run(date=rec_date, fetch_list=lambda: _snapshot_fixture(),
+        res = recommend.run(date=rec_date, fetch_list=lambda: snapshot_fixture(n_normal=3),
                             fetch_klines=fetch_klines, write=True)
         self.assertTrue(res["is_trading_day"])
         self.assertTrue(res["written"])

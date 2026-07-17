@@ -10,7 +10,6 @@
 接口：
 - get_stock_list(): 全市场沪深 A 股列表 + 快照（code/name/price/pct/pe/pb/mktcap）
 - get_klines(code, n=120): 个股近 n 日前复权日 K
-- get_quote(codes): 批量实时行情（腾讯，GBK）
 """
 import json
 import time
@@ -21,7 +20,6 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
 # 主域 web.ifzq.gtimg.cn 自 2026-07-12 起持续返回 501 失效，改用同结构镜像。
 TX_KLINE_URL = "https://proxy.finance.qq.com/ifzqgtimg/appstock/app/fqkline/get"
-TX_QUOTE_URL = "https://qt.gtimg.cn/q="
 SINA_LIST_URL = ("http://vip.stock.finance.sina.com.cn/quotes_service/api/"
                  "json_v2.php/Market_Center.getHQNodeData")
 
@@ -127,43 +125,4 @@ def get_stock_list(page_size=100, max_pages=80):
             out.append(parsed)
         if len(rows) < page_size:
             break
-    return out
-
-
-def get_quote(codes):
-    """腾讯批量实时行情。codes 为代码列表，返回 dict[code] → {name,price,pre_close,open,volume}。
-
-    腾讯返回 GBK 编码；字段以 ~ 分隔，索引：1=名称 2=代码 3=当前价 4=昨收 5=今开 6=成交量。
-    """
-    if isinstance(codes, str):
-        codes = [codes]
-    syms = ",".join(tx_symbol(c) for c in codes)
-    text = _fetch(TX_QUOTE_URL + urllib.parse.quote(syms, safe=","), encoding="gbk")
-    out = {}
-    for c in codes:
-        sym = tx_symbol(c)
-        key = "v_" + sym + "=\""
-        i = text.find(key)
-        if i < 0:
-            continue
-        j = text.find("\"", i + len(key))
-        if j < 0:
-            continue
-        parts = text[i + len(key):j].split("~")
-        if len(parts) < 7:
-            continue
-
-        def _f(idx):
-            try:
-                return float(parts[idx])
-            except (ValueError, IndexError):
-                return None
-
-        out[c] = {
-            "name": parts[1],
-            "price": _f(3),
-            "pre_close": _f(4),
-            "open": _f(5),
-            "volume": _f(6),
-        }
     return out

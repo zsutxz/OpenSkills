@@ -13,26 +13,12 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 import recommend  # noqa: E402
-
-
-def _rising_klines(n=120, growth=1.006, vol_recent_mult=1.4):
-    """上升 K 线（可通过 score 入选条件）。"""
-    closes = [100.0 * (growth ** i) for i in range(n)]
-    vols = [1000.0] * (n - 5) + [1000.0 * vol_recent_mult] * 5
-    return [{"close": c, "volume": v} for c, v in zip(closes, vols)]
+from _fixtures import rising_klines as _rising_klines, snapshot_fixture  # noqa: E402
 
 
 def _snapshot_fixture():
     """5 只正常股（入选）+ 2 只应被 filter_pool 剔除的票。"""
-    return [
-        {"code": "600001", "name": "科创先锋", "price": 25.0, "pe": 30.0},
-        {"code": "600002", "name": "蓝筹稳健", "price": 12.0, "pe": 18.0},
-        {"code": "600003", "name": "成长之星", "price": 8.5, "pe": 22.0},
-        {"code": "600004", "name": "价值回归", "price": 45.0, "pe": 15.0},
-        {"code": "600005", "name": "新兴产业", "price": 33.0, "pe": 40.0},
-        {"code": "600099", "name": "ST问题股", "price": 3.0, "pe": -2.0},  # 过滤(ST+亏损)
-        {"code": "600098", "name": "亏损股", "price": 5.0, "pe": -5.0},   # 过滤(亏损)
-    ]
+    return snapshot_fixture(include_filtered=True)
 
 
 def _mock_fetch_klines():

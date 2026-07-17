@@ -14,10 +14,7 @@ from datetime import datetime, timedelta
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 import review  # noqa: E402
-
-
-def _approx(a, b, tol=1e-6):
-    return a is not None and b is not None and abs(a - b) <= tol
+from _fixtures import approx as _approx  # noqa: E402
 
 
 def _klines(rec_date, base_close, exit_prices):

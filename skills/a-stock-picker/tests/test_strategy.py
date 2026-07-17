@@ -10,6 +10,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 from strategy import filter_pool, score, pick_top3  # noqa: E402
+from _fixtures import rising_klines as _rising_klines  # noqa: E402
 
 
 # ---------- 测试用 fixture 构造 ----------
@@ -20,17 +21,6 @@ def _snap(code, name="测试股", price=10.0, pe=20.0, listing_days=None):
     if listing_days is not None:
         s["listing_days"] = listing_days
     return s
-
-
-def _rising_klines(n, growth, vol_base=1000.0, vol_recent_mult=1.4):
-    """生成 n 根上升 K 线：close 按 growth 复利上升，近 5 日量放大 vol_recent_mult 倍。
-
-    量比 = 近5日均量 / 近20日均量 = 20*mult/(15+5*mult)
-    （mult=1.4 → 1.27；mult=6.0 → 2.67）
-    """
-    closes = [100.0 * (growth ** i) for i in range(n)]
-    vols = [vol_base] * (n - 5) + [vol_base * vol_recent_mult] * 5
-    return [{"close": c, "volume": v} for c, v in zip(closes, vols)]
 
 
 class TestFilterPool(unittest.TestCase):

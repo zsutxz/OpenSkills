@@ -5,6 +5,7 @@
 """
 import json
 import os
+import sys
 
 # 所有对外输出顶部强制标注的风险声明
 RISK_NOTICE = (
@@ -25,12 +26,23 @@ RECOMMEND_FILE = os.path.join(DATA_DIR, "recommendations.jsonl")
 RECOMMEND_MD_FILE = os.path.join(DATA_DIR, "recommendations.md")
 
 
-def fmt_pct(ratio, width=7):
+def ensure_utf8_stdout():
+    """Windows 控制台默认 GBK 编码，无法输出 ⚠️ 等 Unicode 字符（抛 UnicodeEncodeError）。
+    CLI 入口打印前调用一次，把 stdout 切到 UTF-8，保证风险声明/emoji 正常输出；
+    流不支持 reconfigure（如已被替换为 StringIO）时静默跳过。
+    """
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
+
+def fmt_pct(ratio):
     """小数收益率 → 百分号字符串，如 0.0234 → '+2.34%'。None → 'N/A'。"""
     if ratio is None:
         return "  N/A "
     sign = "+" if ratio >= 0 else ""
-    return f"{sign}{ratio * 100:>{width - 2}.2f}%"
+    return f"{sign}{ratio * 100:>5.2f}%"
 
 
 def calc_return(entry, exit_):
@@ -38,13 +50,6 @@ def calc_return(entry, exit_):
     if not entry or not exit_:
         return None
     return (exit_ - entry) / entry
-
-
-def append_jsonl(path, record):
-    """追加一条 JSON 记录到 jsonl 文件（自动建父目录）。"""
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def read_jsonl(path):
@@ -60,23 +65,23 @@ def read_jsonl(path):
     return out
 
 
-def rewrite_jsonl(path, records):
-    """整文件覆盖写（用于同日去重：读出→替换当日→回写）。"""
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    tmp = path + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        for r in records:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    os.replace(tmp, path)
-
-
-def write_text(path, text):
-    """原子覆盖写文本文件（自动建父目录）；用于 md 镜像整体重写。"""
+def _atomic_write(path, text):
+    """原子覆盖写文本（自动建父目录）：写 .tmp 再 os.replace，避免半写状态。"""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         f.write(text)
     os.replace(tmp, path)
+
+
+def rewrite_jsonl(path, records):
+    """整文件覆盖写（用于同日去重：读出→替换当日→回写）。"""
+    _atomic_write(path, "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in records))
+
+
+def write_text(path, text):
+    """原子覆盖写文本文件（自动建父目录）；用于 md 镜像整体重写。"""
+    _atomic_write(path, text)
 
 
 def _md_escape(s):

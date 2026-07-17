@@ -13,7 +13,8 @@ score 打分 → pick_top3 → 中文报告 + 追加 JSONL（同日去重）。
 CLI：python scripts/recommend.py
 """
 from common import (RECOMMEND_FILE, RECOMMEND_MD_FILE, RISK_NOTICE,
-                    read_jsonl, render_recommendations_md, rewrite_jsonl, write_text)
+                    ensure_utf8_stdout, read_jsonl, render_recommendations_md,
+                    rewrite_jsonl, write_text)
 from market_data import get_klines, get_stock_list
 from strategy import filter_pool, pick_top3, score
 from trading_calendar import is_trading_day, today_iso
@@ -122,6 +123,7 @@ def format_report(result):
 
 def main():
     """CLI 入口：跑当日推荐并打印。"""
+    ensure_utf8_stdout()
     print(format_report(run()))
 
 
