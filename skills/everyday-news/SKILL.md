@@ -4,7 +4,7 @@ description: |
   每日新闻、财经早报、政治新闻、世界杯新闻、科技 AI 新闻、GitHub 热门仓库、
   Claude Code 技巧与 Codex 新功能。当用户说“每日新闻 / 新闻早报 / 财经新闻 / 政治新闻 / 
   世界杯新闻 / 科技 AI 新闻 / Claude Code 技巧 / Codex 新功能”时自动激活。
-version: 2.7.0
+version: 2.8.0
 author: Hermes
 allowed-tools:
   - Bash
@@ -21,7 +21,7 @@ prerequisites:
 
 # 📰 Everyday News — 每日新闻
 
-每天早上 8:40 自动生成日报。每个栏目保留 **5 条**，中文输出、去重（对比前 3 天）、不显示网址。
+每天早上 8:40 自动生成日报。每个栏目保留 **5 条**，中文输出、不显示网址。**🐙 GitHub 热门**为独立栏目，跨最近 7 天去重（避免每天都推同一批仓库，每天换新）；**⚽ 体育**栏目世界杯新闻不足 5 条时，用同源其他体育新闻补足。
 
 ## 触发时机
 
@@ -50,11 +50,11 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/everyday-news/scripts/fetch_news.py"
 - 必要时使用 `WebFetch` 打开来源核验标题、日期和正文
 - 只保留可验证、可复述的技巧；来源不清楚就丢弃
 
-### 4. 验证 GitHub 仓库数据
+### 4. 读取 GitHub 热门（脚本已抓取并去重）
 
-- 用 `Bash` + `curl` 先下载 GitHub API 到临时文件
-- 再用 `grep` 或 `Read` 检查仓库名、stars、语言和描述
-- 发现不存在、数据对不上或内容可疑时直接重试搜索
+- GitHub 数据由 `fetch_news.py` 抓取：多 query 扩候选 + 近期活跃(`pushed:>=`)窗口，并跨最近 7 天历史去重
+- 直接读 `docs/everyday-news/YYYY-MM-DD.json` 的「🐙 GitHub 热门」栏目即可，无需再用 curl 重复抓取
+- 仅当某条仓库描述可疑或 stars 异常时，才用 `WebFetch` 单独核验
 
 ### 5. 翻译与保存
 
@@ -68,7 +68,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/everyday-news/scripts/fetch_news.py"
 - 同一栏目保持来源多样化，不要被单一来源填满
 - 去重时对比前 3 天，完全重复或近似重复的新闻跳过
 - 世界杯栏目只保留真正相关的新闻
-- GitHub 栏目只保留 stars 高且描述清晰的仓库
+- GitHub 热门为独立栏目固定 5 条；跨最近 7 天历史去重（每天换新仓库、不再重复），多 query 扩候选 + 近期活跃窗口滚动，按 stars 降序取，不足时逐级放宽兜底
 - Claude Code & Codex 技巧必须有可验证来源
 
 ## 输出模板
@@ -79,18 +79,27 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/everyday-news/scripts/fetch_news.py"
 💰 财经
 1. 中文标题 — CNBC
 2. 中文标题 — MarketWatch
+…（共 5 条，跨源轮询）
 
 🏛️ 政治
 1. 中文标题 — NPR
 2. 中文标题 — CNN
+…（共 5 条，跨源轮询）
 
-⚽ 世界杯
+⚽ 体育
+（世界杯相关优先；不足 5 条用同源其他体育新闻补足）
 1. 中文标题 — ESPN
+…（共 5 条）
 
 💻 科技/AI
 1. 中文标题 — TechCrunch
 2. 中文标题 — Ars Technica
-3. repo 名称 — ⭐ stars — 语言
+…（共 5 条纯 RSS，不再混入 GitHub）
+
+🐙 GitHub 热门
+（跨天去重，每天换新仓库）
+1. repo 名称 — ⭐ stars — 语言
+…（共 5 条）
 
 🔧 Claude Code & Codex
 - **技巧名** — 一句话说明（来源）

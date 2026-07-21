@@ -9,7 +9,7 @@ Output:
     - ./docs/everyday-news/YYYY-MM-DD.md  (English raw)
     - ./docs/everyday-news/YYYY-MM-DD.json (structured data)
 """
-import subprocess, html, re, datetime, os, json, urllib.request, sys
+import subprocess, html, re, datetime, os, json, urllib.request, sys, base64
 
 # Windows 控制台默认 GBK，print 含 emoji 的汇总会抛 UnicodeEncodeError，强制 utf-8 输出
 try:
@@ -30,7 +30,7 @@ SOURCES = {
         ("NPR Politics", "https://feeds.npr.org/1014/rss.xml"),
         ("CNN Politics", "http://rss.cnn.com/rss/cnn_topstories.rss"),
     ],
-    "⚽ 世界杯": [
+    "⚽ 体育": [
         ("ESPN", "https://www.espn.com/espn/rss/news"),
         ("Sky Sports", "https://www.skysports.com/rss/12040"),
     ],
@@ -41,37 +41,52 @@ SOURCES = {
     ],
 }
 
-# GitHub 热门：AI 编程工具（合并到 科技/AI，取 Top 3）
+# GitHub 热门：聚焦 AI 编程工具，多 query 扩大候选池；配 collect_github_repos 的
+# 跨天去重（最近 7 天）+ 近期活跃(pushed:>=)时间窗口，让每天看到的仓库滚动变化
 GITHUB_SEARCH_QUERIES = [
-    ("claude-code", "GitHub"),
-    ("codex-cli", "GitHub"),
-    ("ai-coding-agent", "GitHub"),
+    "claude-code", "codex", "ai-coding-agent",
+    "ai-agent-framework", "cursor", "llm-agent",
 ]
 
-# 世界杯关键词
+# 跨天去重窗口：今天不会再推最近 N 天已出现过的 GitHub 仓库
+GITHUB_HISTORY_DAYS = 7
+
+# 世界杯核心关键词（收紧：去掉过宽的 soccer/football/friendly/ronaldo/ney，
+# 否则淡季也会把所有足球新闻都判成"世界杯"，无法触发用其他体育新闻补足）
 WORLD_CUP_KEYWORDS = [
     "world cup", "worldcup", "fifa", "2026 world cup", "wc 2026", "qualif",
-    "梅西", "姆巴佩", "巴西", "阿根廷", "法国", "世界杯", "淘汰赛",
-    "messi", "mbappe", "ney", "ronaldo", "international break",
-    "friendly", "copa", "concacaf", "conmebol", "uefa nations",
-    "soccer", "football",
+    "梅西", "姆巴佩", "世界杯", "淘汰赛",
+    "messi", "mbappe", "copa", "concacaf", "conmebol", "uefa nations",
 ]
+
+
+def _decode_bytes(b):
+    """UTF-8 优先，失败回退 cp1252（Latin-1 超集，每个字节都有映射，不丢字符）。
+    修复旧版无条件 UTF8.GetString 把非 UTF-8 的 RSS（含 '"'é 等）解码成 ?? 的乱码。"""
+    try:
+        return b.decode("utf-8")
+    except UnicodeDecodeError:
+        return b.decode("cp1252")
 
 
 def fetch_powershell(url):
-    """Fetch data via PowerShell WebClient (bypasses WSL network restrictions)."""
+    """Fetch via PowerShell WebClient (bypasses WSL network restrictions).
+    PowerShell 端只 Base64 回传原始字节，编码判定交给 Python _decode_bytes，
+    避免在 PowerShell 里硬编码 UTF8.GetString 导致非 UTF-8 源乱码。"""
     escaped = url.replace("'", "''")
     ps = f"""
 $wc = New-Object System.Net.WebClient;
-$wc.Encoding = [System.Text.Encoding]::UTF8;
 $wc.Headers.Add("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
-try {{$b=$wc.DownloadData('{escaped}');Write-Output ([System.Text.Encoding]::UTF8.GetString($b))}}
+try {{$b=$wc.DownloadData('{escaped}');Write-Output ([Convert]::ToBase64String($b))}}
 catch {{Write-Output "__FAIL__"}}"""
     try:
         r = subprocess.run(["powershell.exe","-NoProfile","-Command",ps],
             capture_output=True, text=True, timeout=20, encoding='utf-8', errors='replace')
-        return None if r.stdout.strip()=="__FAIL__" else r.stdout.strip()
-    except:
+        out = r.stdout.strip()
+        if out == "__FAIL__" or not out:
+            return None
+        return _decode_bytes(base64.b64decode(out))
+    except Exception:
         return None
 
 
@@ -98,6 +113,66 @@ def fetch_github_trending(query, label, per_page=5):
         return results
     except (json.JSONDecodeError, KeyError):
         return []
+
+
+def load_recent_github_seen(news_dir, today, days=GITHUB_HISTORY_DAYS):
+    """读最近 days 天历史 JSON，收集已推过的 GitHub 仓库 full_name（小写）。
+
+    跨天去重的依据：今天不再推最近 N 天已出现过的仓库，从而让 GitHub 栏目每天换新。
+    历史不足 N 天时只读已有的文件，不报错。
+    """
+    seen = set()
+    for i in range(1, days + 1):
+        d = today - datetime.timedelta(days=i)
+        path = os.path.join(news_dir, f"{d.strftime('%Y-%m-%d')}.json")
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            continue
+        for items in data.get("results", {}).values():
+            for item in items:
+                if isinstance(item, dict) and item.get("is_github"):
+                    seen.add((item.get("title") or "").lower())
+    return seen
+
+
+def collect_github_repos(today, seen, limit=5):
+    """收集 GitHub 热门仓库，跨天去重后取 stars 最高的 limit 条。
+
+    候选滚动：query 拼上 `pushed:>=近期` 时间窗口，让候选是"近 30 天仍活跃"的仓库，
+    随日期滚动；叠加跨天去重，使每天看到的 repo 不同。
+
+    兜底（保证栏目永不为空）：去重后不足 limit 时，按"去时间窗口但仍去重 → 放开去重"
+    两级回退，逐级放宽直到取满 limit。
+    """
+    cutoff = (today - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+    passes = [
+        (f" pushed:>={cutoff}", True),  # 近期活跃 + 去重
+        ("", True),                      # 全量 + 去重
+        ("", False),                     # 全量 + 允许重复（最后兜底）
+    ]
+    collected = []
+    local_seen = set(seen)  # 历史已推 + 本次已收
+    for qualifier, dedup in passes:
+        if len(collected) >= limit:
+            break
+        for query in GITHUB_SEARCH_QUERIES:
+            if len(collected) >= limit:
+                break
+            repos = fetch_github_trending(query + qualifier, "GitHub", per_page=15)
+            for r in repos:
+                key = r["name"].lower()
+                if dedup and key in local_seen:
+                    continue
+                local_seen.add(key)
+                collected.append(r)
+                if len(collected) >= limit:
+                    break
+    collected.sort(key=lambda r: r["stars"], reverse=True)
+    return collected[:limit]
 
 
 def parse_feed(xml, max_items=10):
@@ -190,31 +265,27 @@ def main():
             else:
                 meta["fail"] += 1
             all_entries.append((name, items))
-        if cat == "⚽ 世界杯":
-            filtered = []
-            for name, items in all_entries:
-                wc_items = [(t, l) for t, l in items if is_world_cup_related(t)]
-                filtered.append((name, wc_items))
-            merged = merge_and_limit(filtered, 5)
+        if cat == "⚽ 体育":
+            # 世界杯优先；不足 5 条用同源其他体育新闻轮询补足（merge_and_limit 内部
+            # 按 title[:40] 去重，故补足条目不会与已选的世界杯条目重复）
+            wc = [(name, [(t, l) for t, l in items if is_world_cup_related(t)])
+                  for name, items in all_entries]
+            merged = merge_and_limit(wc, 5)
+            if len(merged) < 5:
+                non_wc = [(name, [(t, l) for t, l in items if not is_world_cup_related(t)])
+                          for name, items in all_entries]
+                merged = merged + merge_and_limit(non_wc, 5 - len(merged))
         else:
             merged = merge_and_limit(all_entries, 5)
         results[cat] = merged
 
-    # --- GitHub 热门（合并到 科技/AI，2条RSS + 3条GitHub = 5条） ---
-    github_seen = set()
-    github_repos = []
-    for query, label in GITHUB_SEARCH_QUERIES:
-        repos = fetch_github_trending(query, label)
-        for repo in repos:
-            key = repo["name"].lower()
-            if key not in github_seen:
-                github_seen.add(key)
-                github_repos.append(repo)
-    github_repos.sort(key=lambda r: r["stars"], reverse=True)
-    existing_tech = results.get("💻 科技/AI", [])
-    tech_combined = list(existing_tech[:2])
-    for r in github_repos[:3]:
-        tech_combined.append({
+    # --- GitHub 热门（独立栏目，5 条，跨天去重滚动） ---
+    # 科技/AI 已是纯 RSS 5 条；GitHub 单独成栏，读最近 7 天历史去重，保证每天换新
+    today_date = datetime.date.today()
+    seen = load_recent_github_seen(NEWS_DIR, today_date, days=GITHUB_HISTORY_DAYS)
+    github_repos = collect_github_repos(today_date, seen, limit=5)
+    results["🐙 GitHub 热门"] = [
+        {
             "title": r["name"],
             "link": r["url"],
             "source": "GitHub",
@@ -222,8 +293,9 @@ def main():
             "lang": r["lang"],
             "desc": r["desc"],
             "is_github": True,
-        })
-    results["💻 科技/AI"] = tech_combined
+        }
+        for r in github_repos
+    ]
 
     # --- 保存 .md（英文原始数据，供代理翻译） ---
     lines = [f"📰 每日新闻 ｜ {today}", ""]

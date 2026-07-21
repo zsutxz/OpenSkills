@@ -16,10 +16,10 @@ deliver:   local (推送 + 存文件)
 
 1. **Run fetch_news.py** — Python subprocess via PowerShell WebClient fetches:
    - RSS feeds (CNBC, MarketWatch, NPR, ESPN/SkySports, TechCrunch, Ars, The Verge)
-   - GitHub search API for AI coding tool repos (claude-code, codex-cli, ai-coding-agent)
+   - GitHub search API: 多 query (claude-code, codex, ai-coding-agent, ai-agent-framework, cursor, llm-agent) + 近期活跃(`pushed:>=`)窗口，跨最近 7 天历史去重 → 独立「🐙 GitHub 热门」栏目 5 条
    - Round-robin merge (1 from each source, cycle until 5 reached)
-   - World Cup keyword filtering on ESPN/SkySports
-   - 科技/AI = 3 RSS (round-robin across TechCrunch/Ars/The Verge) + 2 GitHub = 5 total
+   - 体育栏目：世界杯核心词优先，不足 5 条用同源其他体育新闻补足
+   - 科技/AI = 5 RSS (round-robin across TechCrunch/Ars/The Verge)，纯 RSS 不再混 GitHub
    - Saves raw English data to JSON + MD
 
 2. **Deduplicate news** — read last 3 days' .md, extract Chinese title first 30 chars, skip similar
@@ -37,9 +37,10 @@ deliver:   local (推送 + 存文件)
 | Section | Items | Source strategy |
 |---------|-------|----------------|
 | 💰 财经 | 5 | Round-robin CNBC ↔ MarketWatch |
-| 🏛️ 政治 | 5 | NPR (single source) |
-| ⚽ 世界杯 | ~3-5 | ESPN/SkySports filtered for WC keywords |
-| 💻 科技/AI | 5 | 3 RSS (round-robin) + 2 GitHub (top stars) |
+| 🏛️ 政治 | 5 | NPR ↔ CNN (round-robin) |
+| ⚽ 体育 | 5 | 世界杯核心词优先，不足用同源其他体育新闻补足 |
+| 💻 科技/AI | 5 | 3 RSS round-robin (TechCrunch/Ars/The Verge)，纯 RSS |
+| 🐙 GitHub 热门 | 5 | 多 query + 近期活跃窗口，跨 7 天去重，stars 降序 |
 | 🔧 Claude Code & Codex | 3-5 | Web search, dedup'd daily |
 
 ## Core Rules
